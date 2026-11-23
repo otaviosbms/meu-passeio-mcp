@@ -46,7 +46,7 @@ def test_health_and_mcp_catalog(client: TestClient):
 
     tools = client.get("/mcp/tools").json()
     assert {t["server"] for t in tools} == {SERVER}
-    assert len(tools) == 20
+    assert len(tools) == 28
 
     call = client.post(
         f"/mcp/tools/{SERVER}/calculate_budget_breakdown", json={"total_budget": 400, "days": 2}

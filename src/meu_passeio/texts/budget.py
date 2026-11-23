@@ -11,6 +11,11 @@ LEVELS = {"municipality": "do município", "state": "médio do estado", "nationa
 
 
 class Tools:
+    CONVERT_CURRENCY = (
+        "Converte valores entre moedas com a PTAX do Banco Central (taxa oficial de referência, "
+        "boletim de fechamento mais recente até a data). Útil para viagens internacionais e "
+        "preços em moeda estrangeira. Casas de câmbio e cartões cobram spread e IOF além da PTAX."
+    )
     GET_FUEL_PRICE = (
         "Preço atual de combustível (gasolina, gasolina aditivada, etanol, diesel, diesel S10 "
         "ou GNV) na cidade, pela pesquisa semanal da ANP: média, mediana, mínimo e máximo dos "
@@ -40,6 +45,13 @@ class Tools:
 
 
 class Params:
+    AMOUNT = "Valor a converter"
+    FROM_CURRENCY = (
+        "Moeda de origem (código ISO). PTAX: USD, EUR, GBP, JPY, CHF, CAD, AUD, DKK, NOK, SEK; "
+        "ou BRL"
+    )
+    TO_CURRENCY = "Moeda de destino (padrão: BRL)"
+    QUOTE_ON = "Data da cotação (YYYY-MM-DD); se omitida, a mais recente"
     DISTANCE_KM = "Distância de um trecho, em km"
     CONSUMPTION = "Consumo do veículo em km/l (padrão 12; ajuste para o carro real)"
     FUEL_PRICE = "Preço do litro em BRL; se omitido, usa o preço médio da ANP (informe state)"
@@ -61,6 +73,9 @@ class Params:
 
 
 class Fields:
+    RATE = "Quantas unidades da moeda de destino por 1 unidade da moeda de origem"
+    QUOTE_DATE = "Data do boletim PTAX usado"
+    QUOTES = "R$ por unidade de cada moeda estrangeira envolvida (PTAX de venda)"
     CATEGORY = "ex.: activities, food, transport, tolls, fuel, accommodation"
     AMOUNT = "Valor unitário"
     PER_PERSON = "Multiplica pelo número de viajantes"
@@ -77,6 +92,11 @@ class Fields:
 
 
 class Notes:
+    PTAX_REFERENCE = (
+        "PTAX de venda (Banco Central), referência oficial; o valor pago em casas de câmbio ou "
+        "no cartão inclui spread e IOF."
+    )
+    FUTURE_DATE_USES_LATEST = "Data futura: usada a cotação mais recente disponível."
     CATEGORY_EXCLUDED = "Categoria '{category}' excluída do orçamento."
     ANP_SOURCE = "Fonte: ANP — Levantamento de Preços de Combustíveis (dados abertos)."
     ANP_CITY_NOT_SURVEYED = "{city} não está na pesquisa da ANP; usado o preço {level}."
@@ -98,6 +118,9 @@ class Notes:
 
 
 class Errors:
+    SAME_CURRENCY = "from_currency e to_currency são iguais."
+    UNKNOWN_CURRENCY = "Moeda '{currency}' não disponível na PTAX. Disponíveis: {available}, BRL."
+    NO_QUOTE = "Sem cotação PTAX para {currency} até {date}."
     NEGATIVE_DISTANCE = "distance_km deve ser >= 0"
     INVALID_CONSUMPTION = "consumption_km_per_liter deve ser > 0"
     NEGATIVE_FUEL_PRICE = "fuel_price_per_liter deve ser >= 0"

@@ -5,7 +5,7 @@ TITLE = "Meu Passeio"
 
 INSTRUCTIONS = """\
 Meu Passeio é um planejador de viagens: de um bate-volta a férias com várias cidades.
-As tools cobrem cinco áreas e foram feitas para serem combinadas:
+As tools cobrem seis áreas e foram feitas para serem combinadas:
 
 - Lugares (search_places, search_restaurants, get_place_details, check_opening_hours,
   find_nearby, search_along_route): via Google Maps, com nota, número de avaliações,
@@ -14,28 +14,36 @@ As tools cobrem cinco áreas e foram feitas para serem combinadas:
 - Mapas (calculate_distance, get_route, estimate_toll_costs, get_travel_time,
   optimize_stops): rotas do Google Maps com trânsito para o horário de saída e pedágios em
   R$. Sem a chave, usa OSRM (sem trânsito e sem pedágio).
-- Clima (get_forecast, get_weather_by_date): previsão diária via Open-Meteo, até
-  {max_days} dias à frente. Para datas mais distantes não há previsão: comunique a incerteza.
-- Custos (get_fuel_price, calculate_fuel_cost, estimate_meal_cost, estimate_trip_cost,
-  calculate_budget_breakdown): preço real de combustível pela ANP, custo de refeição pela
-  faixa de preço dos restaurantes no Google e consolidação com a fonte de cada valor.
-- Planejamento (suggest_day_trip_destinations, optimize_day_itinerary): destinos de
-  bate-volta dentro de um tempo de carro e agenda do dia com horários e funcionamento.
+- Clima (get_forecast, get_weather_by_date, get_climate_normals, get_sun_times): previsão
+  diária via Open-Meteo até {max_days} dias à frente; para datas mais distantes, use
+  get_climate_normals (como o tempo costuma ser naquele período) e deixe claro que não é
+  previsão. get_sun_times dá nascer/pôr do sol e hora dourada para qualquer data.
+- Custos (get_fuel_price, calculate_fuel_cost, estimate_meal_cost, convert_currency,
+  estimate_trip_cost, calculate_budget_breakdown): preço real de combustível pela ANP, custo
+  de refeição pela faixa de preço dos restaurantes no Google, câmbio oficial (PTAX do Banco
+  Central) e consolidação com a fonte de cada valor.
+- Planejamento (suggest_day_trip_destinations, optimize_day_itinerary, get_holidays):
+  destinos de bate-volta dentro de um tempo de carro, agenda do dia com horários e
+  funcionamento, e feriados nacionais (lotação e fins de semana prolongados).
+- Roteiros (save_trip, list_trips, get_trip, update_trip): salvar e reabrir roteiros.
 
 Fluxo sugerido para montar um roteiro:
 1. Sem destino definido (ex.: "bate-volta até 2h de carro"), comece por
-   suggest_day_trip_destinations.
+   suggest_day_trip_destinations. Confira com get_holidays se as datas caem em feriado
+   (mais lotação e horários especiais).
 2. Busque lugares que combinem com as preferências. Prefira os bem avaliados e com muitas
    avaliações (use min_rating e min_reviews); evite lugares com poucas notas.
 3. Para cada dia, monte a agenda com optimize_day_itinerary usando os place_id do Google:
    ela ordena as paradas, calcula horários e confere se cada lugar estará aberto.
 4. Para refeições, use search_restaurants ou find_nearby perto das atrações do dia.
-5. Consulte o clima nas datas para priorizar atividades ao ar livre ou alternativas indoor.
+5. Clima: previsão nas datas próximas; médias históricas (get_climate_normals) nas
+   distantes. Use get_sun_times para mirantes, praias e trilhas (pôr do sol, luz do dia).
 6. Custos com fontes reais: combustível com calculate_fuel_cost (preço da ANP na cidade de
    abastecimento; pergunte o consumo do carro se não souber), pedágios com
    estimate_toll_costs, refeições com estimate_meal_cost. Consolide em estimate_trip_cost
    informando a fonte de cada item; o que não vier de uma tool é source=assumption e deve
-   ser apresentado como suposição.
+   ser apresentado como suposição. Em viagens ao exterior, converta com convert_currency.
+7. Depois que o usuário aprovar o roteiro, ofereça salvá-lo com save_trip.
 
 Não invente lugares, horários de funcionamento, avaliações ou preços: use só o que as
 tools retornarem e deixe claro o que é estimativa. Ao apresentar dados do Google, cite
@@ -47,7 +55,7 @@ class Prompts:
     PLAN_TRIP_TITLE = "Planejar viagem"
     PLAN_TRIP_DESCRIPTION = (
         "Monta um roteiro de viagem usando as tools do Meu Passeio "
-        "(lugares, mapas, clima e orçamento)."
+        "(lugares, mapas, clima, custos e planejamento)."
     )
 
     class Args:

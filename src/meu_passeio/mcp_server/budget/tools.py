@@ -19,6 +19,8 @@ from meu_passeio.mcp_server.budget.calculator import (
     FuelCostResult,
     TripCostResult,
 )
+from meu_passeio.mcp_server.budget.currency import SOURCE as PTAX_SOURCE
+from meu_passeio.mcp_server.budget.currency import ptax
 from meu_passeio.mcp_server.budget.fuel import SOURCE as ANP_SOURCE
 from meu_passeio.mcp_server.budget.fuel import FuelType, anp
 from meu_passeio.mcp_server.budget.meals import MealCostEstimate, MealType
@@ -170,7 +172,61 @@ async def calculate_budget_breakdown(
     )
 
 
+class CurrencyConversion(BaseModel):
+    amount: float
+    from_currency: str
+    to_currency: str
+    converted: float
+    rate: float = Field(description=T.Fields.RATE)
+    quote_date: date = Field(description=T.Fields.QUOTE_DATE)
+    quotes: dict[str, float] = Field(description=T.Fields.QUOTES)
+    source: str = PTAX_SOURCE
+    notes: list[str] = Field(default_factory=list)
+
+
+@safe_tool
+async def convert_currency(
+    amount: Annotated[float, Field(ge=0, description=T.Params.AMOUNT)],
+    from_currency: Annotated[
+        str, Field(min_length=3, max_length=3, description=T.Params.FROM_CURRENCY)
+    ],
+    to_currency: Annotated[
+        str, Field(min_length=3, max_length=3, description=T.Params.TO_CURRENCY)
+    ] = "BRL",
+    on_date: Annotated[date | None, Field(description=T.Params.QUOTE_ON)] = None,
+) -> CurrencyConversion:
+    source_code, target_code = from_currency.upper(), to_currency.upper()
+    if source_code == target_code:
+        raise ValueError(T.Errors.SAME_CURRENCY)
+    day = min(on_date or date.today(), date.today())
+    client = ptax()
+    # R$ por unidade de cada moeda (BRL = 1)
+    quotes: dict[str, float] = {}
+    quote_dates: list[date] = []
+    for code in {source_code, target_code} - {"BRL"}:
+        quote = await client.closing_quote(code, day)
+        quotes[code] = quote.sell
+        quote_dates.append(quote.quoted_at.date())
+    brl_per_source = quotes.get(source_code, 1.0)
+    brl_per_target = quotes.get(target_code, 1.0)
+    rate = brl_per_source / brl_per_target
+    notes = [T.Notes.PTAX_REFERENCE]
+    if on_date and on_date > date.today():
+        notes.append(T.Notes.FUTURE_DATE_USES_LATEST)
+    return CurrencyConversion(
+        amount=amount,
+        from_currency=source_code,
+        to_currency=target_code,
+        converted=round(amount * rate, 2),
+        rate=round(rate, 6),
+        quote_date=min(quote_dates),
+        quotes={code: round(value, 4) for code, value in quotes.items()},
+        notes=notes,
+    )
+
+
 def register(mcp: MCPServer) -> None:
+    mcp.add_tool(convert_currency, description=T.Tools.CONVERT_CURRENCY, annotations=ONLINE)
     mcp.add_tool(get_fuel_price, description=T.Tools.GET_FUEL_PRICE, annotations=ONLINE)
     mcp.add_tool(calculate_fuel_cost, description=T.Tools.CALCULATE_FUEL_COST, annotations=ONLINE)
     mcp.add_tool(estimate_meal_cost, description=T.Tools.ESTIMATE_MEAL_COST, annotations=ONLINE)

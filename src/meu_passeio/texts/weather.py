@@ -8,6 +8,16 @@ class Tools:
     GET_WEATHER_BY_DATE = (
         "Previsão para uma data específica, se estiver dentro do horizonte de previsão."
     )
+    GET_CLIMATE_NORMALS = (
+        "Como o tempo costuma ser num período do ano (para viagens além do horizonte da "
+        "previsão): médias de temperatura máxima e mínima, extremos, chuva por dia, chance de "
+        "dia chuvoso, horas de sol e vento, calculadas com o histórico das mesmas datas nos "
+        "últimos anos (Open-Meteo, reanálise ERA5)."
+    )
+    GET_SUN_TIMES = (
+        "Nascer e pôr do sol, crepúsculo civil, hora dourada e duração do dia para qualquer "
+        "data, no fuso horário do lugar. Útil para mirantes, trilhas, praias e fotos."
+    )
 
 
 class Params:
@@ -15,20 +25,41 @@ class Params:
     START_DATE = "Data inicial (YYYY-MM-DD)"
     END_DATE = "Data final (YYYY-MM-DD)"
     TARGET_DATE = "Data (YYYY-MM-DD)"
+    CLIMATE_START = "Início do período (YYYY-MM-DD; o ano é ignorado, vale dia e mês)"
+    CLIMATE_END = "Fim do período (até 31 dias depois do início)"
+    CLIMATE_YEARS = "Quantos anos de histórico considerar (3 a 30)"
+    SUN_END_DATE = "Data final opcional (até 31 dias); se omitida, só start_date"
+
+
+class Fields:
+    CLIMATE_PERIOD = "Período do ano analisado (dia/mês)"
+    CLIMATE_YEARS = "Anos do histórico usados"
+    RAINY_DAYS = "Percentual de dias com chuva >= 1 mm no período"
+    CIVIL_TWILIGHT = "Crepúsculo civil: ainda há claridade para atividades ao ar livre"
+    GOLDEN_HOUR = "Hora dourada (sol abaixo de 6°): melhor luz para fotos"
 
 
 class Notes:
     LOW_CONFIDENCE = "Previsões com mais de 7 dias de antecedência têm baixa confiabilidade."
     UNAVAILABLE_DATES = (
         "Sem previsão para {count} data(s): fora do horizonte de {max_days} dias ou no passado. "
-        "Planeje com alternativas indoor."
+        "Use get_climate_normals para ver como o tempo costuma ser nessas datas."
     )
+    CLIMATE_METHOD = (
+        "Médias das mesmas datas em {count} anos de histórico; indicam o padrão do período, "
+        "não uma previsão."
+    )
+    SUN_METHOD = "Horários calculados astronomicamente (precisão de ~1 minuto), sem relevo."
 
 
 class Errors:
     MISSING_LOCATION = "Informe 'location' ou 'coordinates'."
     END_BEFORE_START = "end_date deve ser >= start_date."
     RANGE_TOO_LONG = "Intervalo máximo de 31 dias."
+    NO_HISTORY = "Não há histórico disponível para esse período."
+
+
+SUN_SOURCE = "cálculo astronômico (NOAA)"
 
 
 UNKNOWN_CONDITION = "desconhecido"

@@ -47,7 +47,8 @@ meu-passeio-mcp/
 │       ├── maps/                     # calculate_distance, get_route, get_travel_time, optimize_stops
 │       ├── weather/                  # get_forecast, get_weather_by_date
 │       ├── budget/                   # combustível (ANP), refeições, custos e orçamento
-│       └── planning/                 # bate-volta e agenda do dia
+│       ├── planning/                 # bate-volta, agenda do dia e feriados
+│       └── trips/                    # salvar e reabrir roteiros
 ├── tests/
 ├── Dockerfile · docker-compose.yml
 └── pyproject.toml
@@ -59,9 +60,10 @@ meu-passeio-mcp/
 |---|---|---|
 | **places** | `search_places`, `search_restaurants`, `get_place_details`, `check_opening_hours`, `find_nearby`, `search_along_route` | **Google Places API (New)**: nota, nº de avaliações, nível e faixa de preço, horários (com feriados nos próximos 7 dias), avaliações, comodidades. Alternativa: OpenStreetMap (Overpass + Nominatim) |
 | **maps** | `calculate_distance`, `get_route`, `estimate_toll_costs`, `get_travel_time`, `optimize_stops` | **Google Routes API**: trânsito para o horário de saída, pedágios em R$, rotas alternativas, ordem otimizada de paradas. Alternativa: OSRM (sem trânsito e sem pedágio) |
-| **weather** | `get_forecast`, `get_weather_by_date` | Open-Meteo — até 16 dias à frente; datas além disso são sinalizadas |
-| **budget** | `get_fuel_price`, `calculate_fuel_cost`, `estimate_meal_cost`, `estimate_trip_cost`, `calculate_budget_breakdown` | **ANP** (preço de combustível por município, últimas 2 semanas, com média do estado quando a cidade não é pesquisada); **Google Maps** (custo de refeição pela faixa de preço dos restaurantes); consolidação com a fonte de cada valor (real × suposição) |
-| **planning** | `suggest_day_trip_destinations`, `optimize_day_itinerary` | Bate-voltas até X horas de carro (atrações bem avaliadas agrupadas por município, tempo real com trânsito) e agenda do dia (ordem otimizada, horários de chegada/saída, conferência de funcionamento) |
+| **weather** | `get_forecast`, `get_weather_by_date`, `get_climate_normals`, `get_sun_times` | Open-Meteo: previsão até 16 dias e **médias históricas** das mesmas datas (ERA5) para viagens distantes; **nascer/pôr do sol, hora dourada e crepúsculo** calculados localmente (algoritmo da NOAA) para qualquer data |
+| **budget** | `get_fuel_price`, `calculate_fuel_cost`, `estimate_meal_cost`, `convert_currency`, `estimate_trip_cost`, `calculate_budget_breakdown` | **ANP** (preço de combustível por município, últimas 2 semanas, com média do estado quando a cidade não é pesquisada); **Google Maps** (custo de refeição pela faixa de preço dos restaurantes); **PTAX do Banco Central** (câmbio oficial); consolidação com a fonte de cada valor (real × suposição) |
+| **planning** | `suggest_day_trip_destinations`, `optimize_day_itinerary`, `get_holidays` | Bate-voltas até X horas de carro (atrações bem avaliadas agrupadas por município, tempo real com trânsito) e agenda do dia (ordem otimizada, horários de chegada/saída, conferência de funcionamento); **feriados nacionais** e pontos facultativos calculados localmente, com fins de semana prolongados |
+| **trips** | `save_trip`, `list_trips`, `get_trip`, `update_trip` | Roteiros salvos no mesmo banco da API (`/trips`) |
 
 Tudo roda num único processo (`python -m meu_passeio.mcp_server`) que fala MCP via stdio. As
 instruções do server explicam como combinar as áreas para montar um roteiro, e o prompt
@@ -163,5 +165,5 @@ testes ponta a ponta da API.
 - [ ] Migrações com Alembic
 - [x] Google Maps (lugares e rotas) — Fase 1
 - [x] Custos reais (ANP, refeições) e planejamento de bate-volta/dia — Fase 2
-- [ ] Clima histórico, nascer/pôr do sol, feriados, câmbio — Fase 3
+- [x] Clima histórico, nascer/pôr do sol, feriados, câmbio e roteiros salvos — Fase 3
 - [ ] Tools de hospedagem e de transporte

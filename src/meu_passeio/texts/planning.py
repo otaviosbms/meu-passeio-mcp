@@ -1,9 +1,42 @@
-"""Textos das tools de planejamento (bate-volta e agenda do dia)."""
+"""Textos das tools de planejamento (bate-volta, agenda do dia e feriados)."""
 
 UNNAMED_STOP = "Parada {n}"
 
+# Dias da semana no padrão do Python (0 = segunda)
+WEEKDAYS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
+HOLIDAY_KINDS = {"national": "feriado nacional", "optional": "ponto facultativo nacional"}
+
+
+class HolidayNames:
+    NEW_YEAR = "Confraternização Universal"
+    CARNIVAL_MONDAY = "Carnaval (segunda-feira)"
+    CARNIVAL_TUESDAY = "Carnaval (terça-feira)"
+    ASH_WEDNESDAY = "Quarta-feira de Cinzas (até 14h)"
+    GOOD_FRIDAY = "Sexta-feira Santa"
+    TIRADENTES = "Tiradentes"
+    LABOR_DAY = "Dia do Trabalho"
+    CORPUS_CHRISTI = "Corpus Christi"
+    INDEPENDENCE = "Independência do Brasil"
+    APARECIDA = "Nossa Senhora Aparecida"
+    ALL_SOULS = "Finados"
+    REPUBLIC = "Proclamação da República"
+    BLACK_CONSCIOUSNESS = "Dia Nacional de Zumbi e da Consciência Negra"
+    CHRISTMAS = "Natal"
+
+
+class LongWeekend:
+    THREE_DAYS = "fim de semana prolongado (3 dias)"
+    BRIDGE = "possível emenda (4 dias, com ponte)"
+    ON_WEEKEND = "cai no fim de semana"
+    CARNIVAL = "Carnaval: sábado a terça (4 dias)"
+
 
 class Tools:
+    GET_HOLIDAYS = (
+        "Feriados nacionais e pontos facultativos nacionais (Carnaval, Corpus Christi) num "
+        "período, com o dia da semana e se formam fim de semana prolongado. Feriados lotam "
+        "destinos e mudam horários de atrações: considere ao planejar datas."
+    )
     SUGGEST_DAY_TRIP_DESTINATIONS = (
         "Sugere destinos de bate-volta a partir de uma cidade de origem, até um tempo máximo de "
         "carro. Procura atrações bem avaliadas no Google Maps na região, agrupa por município e "
@@ -21,6 +54,8 @@ class Tools:
 
 
 class Params:
+    HOLIDAYS_START = "Data inicial (YYYY-MM-DD)"
+    HOLIDAYS_END = "Data final (até 1 ano depois); se omitida, até o fim do ano de start_date"
     MAX_DRIVE_HOURS = "Tempo máximo de carro (só ida), em horas, ex.: 2"
     ORIGIN = "Cidade de partida, ex.: 'Marília, SP'. Use isto OU origin_coordinates."
     ORIGIN_COORDINATES = "Coordenadas de partida. Use isto OU origin."
@@ -48,6 +83,8 @@ class Params:
 
 
 class Fields:
+    HOLIDAY_KIND = "feriado nacional ou ponto facultativo nacional"
+    LONG_WEEKEND = "Efeito no fim de semana (prolongado, emenda ou cai no fim de semana)"
     DRIVE_MINUTES = "Tempo de carro até a principal atração do município (com trânsito)"
     SCORE = "Soma da qualidade das 3 melhores atrações (nota ponderada pelo nº de avaliações)"
     INPUT_INDEX = "Posição da parada na lista de entrada"
@@ -56,6 +93,10 @@ class Fields:
 
 
 class Notes:
+    HOLIDAYS_SCOPE = (
+        "Inclui só datas nacionais; feriados estaduais e municipais (ex.: aniversário da cidade) "
+        "não estão na lista. Pontos facultativos são feriado em muitos lugares."
+    )
     DAY_TRIP_METHOD = (
         "Tempos de carro calculados pelo Google Maps até a atração mais bem avaliada de cada "
         "município; atrações dentro do raio, filtradas por nota e número de avaliações."
@@ -85,6 +126,8 @@ class Warnings:
 
 
 class Errors:
+    END_BEFORE_START = "end_date deve ser >= start_date."
+    HOLIDAY_RANGE_TOO_LONG = "Período máximo de 1 ano."
     GOOGLE_REQUIRED = (
         "Esta operação requer Google Maps. Configure GOOGLE_MAPS_API_KEY no .env do projeto."
     )

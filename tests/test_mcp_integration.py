@@ -23,6 +23,9 @@ EXPECTED_TOOLS = {
     "optimize_stops",
     "get_forecast",
     "get_weather_by_date",
+    "get_climate_normals",
+    "get_sun_times",
+    "convert_currency",
     "get_fuel_price",
     "calculate_fuel_cost",
     "estimate_meal_cost",
@@ -30,6 +33,11 @@ EXPECTED_TOOLS = {
     "calculate_budget_breakdown",
     "suggest_day_trip_destinations",
     "optimize_day_itinerary",
+    "get_holidays",
+    "save_trip",
+    "list_trips",
+    "get_trip",
+    "update_trip",
 }
 
 

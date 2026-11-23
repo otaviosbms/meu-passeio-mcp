@@ -20,6 +20,7 @@ dependencies = [
     "aiosqlite>=0.20",
     "pyyaml>=6.0",
     "jsonschema>=4.23",
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]

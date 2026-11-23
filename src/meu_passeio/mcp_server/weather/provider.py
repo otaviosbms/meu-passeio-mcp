@@ -17,8 +17,17 @@ FORECAST_URL = os.getenv("OPEN_METEO_FORECAST_URL", "https://api.open-meteo.com/
 GEOCODING_URL = os.getenv(
     "OPEN_METEO_GEOCODING_URL", "https://geocoding-api.open-meteo.com/v1/search"
 )
+ARCHIVE_URL = os.getenv("OPEN_METEO_ARCHIVE_URL", "https://archive-api.open-meteo.com/v1/archive")
 SOURCE = "open-meteo"
 MAX_FORECAST_DAYS = 16
+
+ARCHIVE_FIELDS = [
+    "temperature_2m_max",
+    "temperature_2m_min",
+    "precipitation_sum",
+    "sunshine_duration",
+    "wind_speed_10m_max",
+]
 
 _DAILY_FIELDS = [
     "weather_code",
@@ -34,6 +43,7 @@ _DAILY_FIELDS = [
 class OpenMeteoProvider:
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
+        self._timezones: dict[tuple[float, float], str] = {}
 
     async def geocode(self, location: str) -> tuple[Coordinates, str]:
         # Open-Meteo geocoding funciona melhor só com o nome da cidade.
@@ -93,3 +103,41 @@ class OpenMeteoProvider:
                 }
             )
         return days, data.get("timezone")
+
+    async def timezone_name(self, coords: Coordinates) -> str:
+        """Fuso IANA do local (ex.: America/Sao_Paulo), resolvido pelo Open-Meteo."""
+        key = (round(coords.latitude, 2), round(coords.longitude, 2))
+        if key not in self._timezones:
+            data = await get_json(
+                self._client,
+                FORECAST_URL,
+                params={
+                    "latitude": coords.latitude,
+                    "longitude": coords.longitude,
+                    "timezone": "auto",
+                    "forecast_days": 1,
+                    "daily": "sunrise",
+                },
+                provider=SOURCE,
+            )
+            self._timezones[key] = data.get("timezone") or "UTC"
+        return self._timezones[key]
+
+    async def archive_daily(
+        self, coords: Coordinates, start: date, end: date
+    ) -> dict[str, list[Any]]:
+        """Série diária histórica (reanálise ERA5) entre as datas."""
+        data = await get_json(
+            self._client,
+            ARCHIVE_URL,
+            params={
+                "latitude": coords.latitude,
+                "longitude": coords.longitude,
+                "daily": ",".join(ARCHIVE_FIELDS),
+                "timezone": "auto",
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+            },
+            provider=SOURCE,
+        )
+        return data.get("daily") or {}

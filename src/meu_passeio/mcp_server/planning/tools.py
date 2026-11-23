@@ -1,4 +1,4 @@
-"""Tools de planejamento — sugestão de bate-voltas e agenda otimizada de um dia.
+"""Tools de planejamento — bate-voltas, agenda otimizada de um dia e feriados.
 
 Textos (descrições, notas, erros): meu_passeio/texts/planning.py
 """
@@ -10,16 +10,34 @@ from typing import Annotated
 
 from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from meu_passeio.mcp_server.common.errors import safe_tool
 from meu_passeio.mcp_server.places.schemas import PlaceCategory
 from meu_passeio.mcp_server.planning import service
+from meu_passeio.mcp_server.planning.holidays import holidays_between, long_weekend
 from meu_passeio.mcp_server.planning.schemas import DayItinerary, DayStop, DayTripSuggestions
 from meu_passeio.shared.schemas import Coordinates, TravelMode, Waypoint
 from meu_passeio.texts import planning as T
 
 READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+LOCAL = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
+MAX_HOLIDAY_RANGE_DAYS = 366
+
+
+class HolidayItem(BaseModel):
+    date: date
+    weekday: str
+    name: str
+    kind: str = Field(description=T.Fields.HOLIDAY_KIND)
+    long_weekend: str | None = Field(default=None, description=T.Fields.LONG_WEEKEND)
+
+
+class HolidaysResult(BaseModel):
+    start_date: date
+    end_date: date
+    holidays: list[HolidayItem]
+    notes: list[str] = Field(default_factory=list)
 
 
 @safe_tool
@@ -74,7 +92,33 @@ async def optimize_day_itinerary(
     )
 
 
+@safe_tool
+async def get_holidays(
+    start_date: Annotated[date, Field(description=T.Params.HOLIDAYS_START)],
+    end_date: Annotated[date | None, Field(description=T.Params.HOLIDAYS_END)] = None,
+) -> HolidaysResult:
+    end_date = end_date or date(start_date.year, 12, 31)
+    if end_date < start_date:
+        raise ValueError(T.Errors.END_BEFORE_START)
+    if (end_date - start_date).days > MAX_HOLIDAY_RANGE_DAYS:
+        raise ValueError(T.Errors.HOLIDAY_RANGE_TOO_LONG)
+    items = [
+        HolidayItem(
+            date=h.date,
+            weekday=T.WEEKDAYS[h.date.weekday()],
+            name=h.name,
+            kind=T.HOLIDAY_KINDS[h.kind],
+            long_weekend=long_weekend(h),
+        )
+        for h in holidays_between(start_date, end_date)
+    ]
+    return HolidaysResult(
+        start_date=start_date, end_date=end_date, holidays=items, notes=[T.Notes.HOLIDAYS_SCOPE]
+    )
+
+
 def register(mcp: MCPServer) -> None:
+    mcp.add_tool(get_holidays, description=T.Tools.GET_HOLIDAYS, annotations=LOCAL)
     mcp.add_tool(
         suggest_day_trip_destinations,
         description=T.Tools.SUGGEST_DAY_TRIP_DESTINATIONS,
