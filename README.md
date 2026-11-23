@@ -9,7 +9,8 @@ cliente MCP (por exemplo, Claude Desktop ou Claude Code), que combina as tools p
 roteiro; a API serve para inspecionar, chamar as tools e guardar roteiros montados pelo cliente.
 
 **Stack:** Python 3.11+ · FastAPI · MCP Python SDK 2.x · SQLAlchemy (SQLite/PostgreSQL) ·
-OpenStreetMap / OSRM / Open-Meteo (sem API keys).
+Google Maps Platform (Places API (New) + Routes API) · Open-Meteo · OpenStreetMap/OSRM como
+alternativa sem chave.
 
 ## Arquitetura
 
@@ -55,8 +56,8 @@ meu-passeio-mcp/
 
 | Área | Tools | Provedor |
 |---|---|---|
-| **places** | `search_places`, `search_restaurants`, `get_place_details` | OpenStreetMap (Overpass com failover entre instâncias + circuit breaker; fallback no Nominatim) |
-| **maps** | `calculate_distance`, `get_route`, `get_travel_time`, `optimize_stops` | OSRM (`routing.openstreetmap.de`) — sem trânsito em tempo real |
+| **places** | `search_places`, `search_restaurants`, `get_place_details`, `check_opening_hours`, `find_nearby`, `search_along_route` | **Google Places API (New)**: nota, nº de avaliações, nível e faixa de preço, horários (com feriados nos próximos 7 dias), avaliações, comodidades. Alternativa: OpenStreetMap (Overpass + Nominatim) |
+| **maps** | `calculate_distance`, `get_route`, `estimate_toll_costs`, `get_travel_time`, `optimize_stops` | **Google Routes API**: trânsito para o horário de saída, pedágios em R$, rotas alternativas, ordem otimizada de paradas. Alternativa: OSRM (sem trânsito e sem pedágio) |
 | **weather** | `get_forecast`, `get_weather_by_date` | Open-Meteo — até 16 dias à frente; datas além disso são sinalizadas |
 | **budget** | `calculate_fuel_cost`, `estimate_trip_cost`, `calculate_budget_breakdown` | Cálculos próprios, determinísticos |
 
@@ -89,9 +90,22 @@ Todo resultado carrega a origem (`source`) e erros de provedor viram mensagens s
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-copy .env.example .env
+copy .env.example .env   # coloque sua GOOGLE_MAPS_API_KEY
 uvicorn meu_passeio.api.main:app --reload
 ```
+
+### Google Maps
+
+1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto com faturamento.
+2. Ative **Places API (New)** e **Routes API**.
+3. Crie uma chave de API restrita a essas duas APIs.
+4. Coloque-a em `GOOGLE_MAPS_API_KEY` no `.env` da raiz do projeto. O server lê esse arquivo
+   pelo caminho absoluto, então funciona mesmo quando iniciado pelo Claude Desktop.
+
+As chamadas pedem só os campos necessários (`X-Goog-FieldMask`), mas nota, preço e horários são
+campos dos níveis mais caros da Places API: confira a cota gratuita e a tabela de preços no
+console. Sem chave, ou se o Google falhar, as tools usam OpenStreetMap/OSRM e avisam em `notes`.
+Dados do Google devem ser exibidos com atribuição ("Google Maps").
 
 Abra `http://localhost:8000/docs`. O MCP Server é iniciado pela própria API no startup.
 

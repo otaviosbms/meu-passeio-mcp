@@ -57,6 +57,9 @@ NOMINATIM_FALLBACK_TERMS: dict[str, str] = {
     "bar": "bar",
     "fast_food": "fast food",
     "ice_cream": "ice cream",
+    "hiking_area": "trailhead",
+    "aquarium": "aquarium",
+    "bakery": "bakery",
 }
 
 # Categoria -> filtros de tags do Overpass
@@ -80,6 +83,9 @@ CATEGORY_FILTERS: dict[str, list[str]] = {
     "bar": ['["amenity"~"^(bar|pub)$"]'],
     "fast_food": ['["amenity"="fast_food"]'],
     "ice_cream": ['["amenity"="ice_cream"]'],
+    "hiking_area": ['["highway"="trailhead"]', '["route"="hiking"]'],
+    "aquarium": ['["tourism"="aquarium"]'],
+    "bakery": ['["shop"="bakery"]'],
 }
 
 _TAG_TO_CATEGORY: list[tuple[str, str, str]] = [
@@ -89,6 +95,9 @@ _TAG_TO_CATEGORY: list[tuple[str, str, str]] = [
     ("amenity", "pub", "bar"),
     ("amenity", "fast_food", "fast_food"),
     ("amenity", "ice_cream", "ice_cream"),
+    ("tourism", "aquarium", "aquarium"),
+    ("shop", "bakery", "bakery"),
+    ("highway", "trailhead", "hiking_area"),
     ("amenity", "theatre", "theatre"),
     ("amenity", "place_of_worship", "place_of_worship"),
     ("tourism", "museum", "museum"),

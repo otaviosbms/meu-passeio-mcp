@@ -1,4 +1,4 @@
-"""Textos compartilhados pelos MCP Servers."""
+"""Textos compartilhados pelas tools."""
 
 
 class ProviderErrors:
@@ -6,6 +6,7 @@ class ProviderErrors:
     HTTP_STATUS = "Provedor '{provider}' retornou HTTP {status}."
     REQUEST_FAILED = "Falha ao consultar o provedor '{provider}'."
     LOCATION_NOT_FOUND = "Localização não encontrada: '{location}'."
+    GOOGLE_ERROR = "Google Maps retornou {status}: {message}"
 
 
 class ToolErrors:

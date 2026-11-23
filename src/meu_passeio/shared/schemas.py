@@ -5,11 +5,11 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from meu_passeio.texts import shared as T
 
-TravelMode = Literal["driving", "walking", "cycling"]
+TravelMode = Literal["driving", "walking", "cycling", "transit"]
 Transportation = Literal["car", "bus", "plane", "walking", "other"]
 
 
@@ -18,6 +18,22 @@ class Coordinates(BaseModel):
 
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
+
+
+class Waypoint(BaseModel):
+    """Ponto de rota: informe exatamente um entre coordenadas, endereço ou place_id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    coordinates: Coordinates | None = None
+    address: str | None = Field(default=None, description=T.Fields.WAYPOINT_ADDRESS)
+    place_id: str | None = Field(default=None, description=T.Fields.WAYPOINT_PLACE_ID)
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> Waypoint:
+        if sum(v is not None for v in (self.coordinates, self.address, self.place_id)) != 1:
+            raise ValueError(T.Errors.WAYPOINT_EXACTLY_ONE)
+        return self
 
 
 class Budget(BaseModel):

@@ -7,24 +7,32 @@ INSTRUCTIONS = """\
 Meu Passeio é um planejador de viagens: de um bate-volta a férias com várias cidades.
 As tools cobrem quatro áreas e foram feitas para serem combinadas:
 
-- Lugares (search_places, search_restaurants, get_place_details): atrações, natureza,
-  cultura e alimentação via OpenStreetMap. Avaliações não existem neste provedor
-  (rating=null). Preserve os IDs (osm:<tipo>:<id>) e as coordenadas retornadas.
-- Mapas (calculate_distance, get_route, get_travel_time, optimize_stops): distâncias,
-  rotas e tempos via OSRM. As durações NÃO consideram trânsito em tempo real.
+- Lugares (search_places, search_restaurants, get_place_details, check_opening_hours,
+  find_nearby, search_along_route): via Google Maps, com nota, número de avaliações,
+  nível/faixa de preço e horários. Sem a chave do Google, cai para OpenStreetMap (sem
+  avaliações nem preços) e o resultado avisa em `notes`. Preserve os IDs e as coordenadas.
+- Mapas (calculate_distance, get_route, estimate_toll_costs, get_travel_time,
+  optimize_stops): rotas do Google Maps com trânsito para o horário de saída e pedágios em
+  R$. Sem a chave, usa OSRM (sem trânsito e sem pedágio).
 - Clima (get_forecast, get_weather_by_date): previsão diária via Open-Meteo, até
   {max_days} dias à frente. Para datas mais distantes não há previsão: comunique a incerteza.
 - Orçamento (calculate_fuel_cost, estimate_trip_cost, calculate_budget_breakdown):
-  cálculos determinísticos. Os resultados são estimativas, nunca preços reais.
+  cálculos determinísticos sobre os valores informados.
 
 Fluxo sugerido para montar um roteiro:
-1. Busque lugares que combinem com as preferências no destino.
-2. Use mapas para agrupar lugares próximos no mesmo dia e checar os deslocamentos.
-3. Consulte o clima nas datas para priorizar atividades ao ar livre ou alternativas indoor.
-4. Feche o orçamento com as tools de orçamento.
+1. Busque lugares que combinem com as preferências. Prefira os bem avaliados e com muitas
+   avaliações (use min_rating e min_reviews); evite lugares com poucas notas.
+2. Agrupe lugares próximos no mesmo dia (get_travel_time / optimize_stops) e use
+   departure_time nos deslocamentos de carro para considerar o trânsito.
+3. Confira com check_opening_hours se cada lugar estará aberto no horário planejado.
+4. Para refeições, use search_restaurants ou find_nearby perto das atrações do dia.
+5. Consulte o clima nas datas para priorizar atividades ao ar livre ou alternativas indoor.
+6. Custos: use pedágios de estimate_toll_costs e a faixa de preço (price_range) dos
+   restaurantes. Quando um valor não vier de uma tool, diga que é suposição e qual a base.
 
 Não invente lugares, horários de funcionamento, avaliações ou preços: use só o que as
-tools retornarem e deixe claro o que é estimativa.
+tools retornarem e deixe claro o que é estimativa. Ao apresentar dados do Google, cite
+"Google Maps" como fonte e, em avaliações, o nome do autor.
 """
 
 
