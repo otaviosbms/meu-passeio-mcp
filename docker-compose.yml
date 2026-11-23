@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MEU_PASSEIO_DATABASE_URL: postgresql+asyncpg://meu_passeio:meu_passeio@db:5432/meu_passeio
+      MEU_PASSEIO_MCP_CONFIG_PATH: /app/config/mcp_servers.yaml
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: meu_passeio
+      POSTGRES_PASSWORD: meu_passeio
+      POSTGRES_DB: meu_passeio
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meu_passeio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
