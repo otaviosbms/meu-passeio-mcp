@@ -1,6 +1,5 @@
-"""Places MCP Server — descoberta e detalhes de locais (OpenStreetMap).
+"""Tools de lugares — descoberta e detalhes de locais (OpenStreetMap).
 
-Execução (stdio):  python -m meu_passeio.mcp_servers.places
 Textos (descrições, notas, erros): meu_passeio/texts/places.py
 """
 
@@ -12,11 +11,10 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from meu_passeio.core.logging import configure_logging
-from meu_passeio.mcp_servers.common.errors import safe_tool
-from meu_passeio.mcp_servers.common.http import build_client
-from meu_passeio.mcp_servers.places.provider import OsmPlacesProvider
-from meu_passeio.mcp_servers.places.schemas import (
+from meu_passeio.mcp_server.common.errors import safe_tool
+from meu_passeio.mcp_server.common.http import build_client
+from meu_passeio.mcp_server.places.provider import OsmPlacesProvider
+from meu_passeio.mcp_server.places.schemas import (
     FoodCategory,
     PlaceCategory,
     PlaceDetails,
@@ -24,8 +22,6 @@ from meu_passeio.mcp_servers.places.schemas import (
 )
 from meu_passeio.shared.schemas import Coordinates
 from meu_passeio.texts import places as T
-
-mcp = MCPServer(name="meu-passeio-places", instructions=T.INSTRUCTIONS)
 
 READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 _provider: OsmPlacesProvider | None = None
@@ -44,7 +40,6 @@ RadiusArg = Annotated[float, Field(ge=0.5, le=100, description=T.Params.RADIUS_K
 LimitArg = Annotated[int, Field(ge=1, le=30, description=T.Params.LIMIT)]
 
 
-@mcp.tool(description=T.Tools.SEARCH_PLACES, annotations=READ_ONLY)
 @safe_tool
 async def search_places(
     categories: Annotated[
@@ -82,7 +77,6 @@ async def search_places(
     )
 
 
-@mcp.tool(description=T.Tools.SEARCH_RESTAURANTS, annotations=READ_ONLY)
 @safe_tool
 async def search_restaurants(
     location: LocationArg = None,
@@ -111,7 +105,6 @@ async def search_restaurants(
     )
 
 
-@mcp.tool(description=T.Tools.GET_PLACE_DETAILS, annotations=READ_ONLY)
 @safe_tool
 async def get_place_details(
     place_id: Annotated[str, Field(description=T.Params.PLACE_ID)],
@@ -119,10 +112,7 @@ async def get_place_details(
     return await provider().details(place_id)
 
 
-def main() -> None:
-    configure_logging()
-    mcp.run("stdio")
-
-
-if __name__ == "__main__":
-    main()
+def register(mcp: MCPServer) -> None:
+    mcp.add_tool(search_places, description=T.Tools.SEARCH_PLACES, annotations=READ_ONLY)
+    mcp.add_tool(search_restaurants, description=T.Tools.SEARCH_RESTAURANTS, annotations=READ_ONLY)
+    mcp.add_tool(get_place_details, description=T.Tools.GET_PLACE_DETAILS, annotations=READ_ONLY)

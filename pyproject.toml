@@ -32,10 +32,7 @@ dev = [
 
 [project.scripts]
 meu-passeio-api = "meu_passeio.api.main:run"
-meu-passeio-places = "meu_passeio.mcp_servers.places.server:main"
-meu-passeio-maps = "meu_passeio.mcp_servers.maps.server:main"
-meu-passeio-weather = "meu_passeio.mcp_servers.weather.server:main"
-meu-passeio-budget = "meu_passeio.mcp_servers.budget.server:main"
+meu-passeio-mcp = "meu_passeio.mcp_server.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/meu_passeio"]

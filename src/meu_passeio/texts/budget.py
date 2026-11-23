@@ -1,6 +1,4 @@
-"""Textos do Budget MCP Server."""
-
-INSTRUCTIONS = "Cálculos de orçamento. Resultados são estimativas, nunca preços reais."
+"""Textos das tools de orçamento."""
 
 DISCLAIMER = "Estimativa calculada a partir dos parâmetros informados; não é um preço real."
 FUEL_FORMULA = "(distance_km × (2 se ida e volta)) / consumo × preço_litro"

@@ -1,9 +1,4 @@
-"""Textos do Maps MCP Server."""
-
-INSTRUCTIONS = (
-    "Cálculo de distâncias e rotas (OSRM/OpenStreetMap). Durações NÃO consideram trânsito "
-    "em tempo real."
-)
+"""Textos das tools de mapas."""
 
 
 class Tools:

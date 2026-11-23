@@ -9,7 +9,7 @@ from typing import ParamSpec, TypeVar
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-from meu_passeio.mcp_servers.common.http import ProviderError
+from meu_passeio.mcp_server.common.http import ProviderError
 from meu_passeio.texts.common import ToolErrors
 
 P = ParamSpec("P")

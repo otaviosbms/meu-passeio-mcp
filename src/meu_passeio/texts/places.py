@@ -1,9 +1,4 @@
-"""Textos do Places MCP Server."""
-
-INSTRUCTIONS = (
-    "Descoberta de lugares (atrações, natureza, cultura, alimentação) via OpenStreetMap. "
-    "Avaliações não estão disponíveis neste provedor (rating=null)."
-)
+"""Textos das tools de lugares."""
 
 
 class Tools:

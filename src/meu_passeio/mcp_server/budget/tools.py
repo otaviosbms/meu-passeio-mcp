@@ -1,6 +1,5 @@
-"""Budget MCP Server — estimativas e cálculos determinísticos (sem API externa).
+"""Tools de orçamento — estimativas e cálculos determinísticos (sem API externa).
 
-Execução (stdio):  python -m meu_passeio.mcp_servers.budget
 Textos (descrições, notas, erros): meu_passeio/texts/budget.py
 """
 
@@ -12,22 +11,19 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from meu_passeio.core.logging import configure_logging
-from meu_passeio.mcp_servers.budget import calculator
-from meu_passeio.mcp_servers.budget.calculator import (
+from meu_passeio.mcp_server.budget import calculator
+from meu_passeio.mcp_server.budget.calculator import (
     BudgetBreakdownResult,
     CostItem,
     FuelCostResult,
     TripCostResult,
 )
-from meu_passeio.mcp_servers.common.errors import safe_tool
+from meu_passeio.mcp_server.common.errors import safe_tool
 from meu_passeio.texts import budget as T
 
-mcp = MCPServer(name="meu-passeio-budget", instructions=T.INSTRUCTIONS)
 PURE = ToolAnnotations(readOnlyHint=True, idempotentHint=True, openWorldHint=False)
 
 
-@mcp.tool(description=T.Tools.CALCULATE_FUEL_COST, annotations=PURE)
 @safe_tool
 async def calculate_fuel_cost(
     distance_km: Annotated[float, Field(ge=0, description=T.Params.DISTANCE_KM)],
@@ -40,7 +36,6 @@ async def calculate_fuel_cost(
     )
 
 
-@mcp.tool(description=T.Tools.ESTIMATE_TRIP_COST, annotations=PURE)
 @safe_tool
 async def estimate_trip_cost(
     items: Annotated[list[CostItem], Field(min_length=1, max_length=200)],
@@ -50,7 +45,6 @@ async def estimate_trip_cost(
     return calculator.estimate_trip_cost(items, travelers, budget)
 
 
-@mcp.tool(description=T.Tools.CALCULATE_BUDGET_BREAKDOWN, annotations=PURE)
 @safe_tool
 async def calculate_budget_breakdown(
     total_budget: Annotated[float, Field(ge=0)],
@@ -66,10 +60,11 @@ async def calculate_budget_breakdown(
     )
 
 
-def main() -> None:
-    configure_logging()
-    mcp.run("stdio")
-
-
-if __name__ == "__main__":
-    main()
+def register(mcp: MCPServer) -> None:
+    mcp.add_tool(calculate_fuel_cost, description=T.Tools.CALCULATE_FUEL_COST, annotations=PURE)
+    mcp.add_tool(estimate_trip_cost, description=T.Tools.ESTIMATE_TRIP_COST, annotations=PURE)
+    mcp.add_tool(
+        calculate_budget_breakdown,
+        description=T.Tools.CALCULATE_BUDGET_BREAKDOWN,
+        annotations=PURE,
+    )

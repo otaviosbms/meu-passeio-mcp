@@ -1,6 +1,6 @@
-# Configuração dos MCP Servers conectados pelo MCP Client Manager.
+# Configuração dos MCP Servers conectados pelo MCP Client Manager da API.
 #
-# - transport: por enquanto "stdio" (cada server é um processo filho).
+# - transport: por enquanto "stdio" (o server é um processo filho).
 # - command: "{python}" é substituído pelo interpretador Python atual (o da venv).
 # - env: variáveis extras repassadas ao processo. Use ${VAR} para ler do ambiente do host;
 #   segredos ficam no ambiente/secret manager, nunca neste arquivo.
@@ -8,34 +8,11 @@
 # - timeout_seconds / retries: limites por chamada de tool.
 
 mcpServers:
-  places:
+  meu-passeio:
     transport: stdio
     command: "{python}"
-    args: ["-m", "meu_passeio.mcp_servers.places"]
+    args: ["-m", "meu_passeio.mcp_server"]
     enabled: true
+    # A busca de lugares pode esperar o failover entre instâncias do Overpass.
     timeout_seconds: 90
-    retries: 0  # o provider já faz failover entre instâncias
-
-  maps:
-    transport: stdio
-    command: "{python}"
-    args: ["-m", "meu_passeio.mcp_servers.maps"]
-    enabled: true
-    timeout_seconds: 25
-    retries: 1
-
-  weather:
-    transport: stdio
-    command: "{python}"
-    args: ["-m", "meu_passeio.mcp_servers.weather"]
-    enabled: true
-    timeout_seconds: 20
-    retries: 1
-
-  budget:
-    transport: stdio
-    command: "{python}"
-    args: ["-m", "meu_passeio.mcp_servers.budget"]
-    enabled: true
-    timeout_seconds: 10
     retries: 0

@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from meu_passeio.mcp_servers.common.http import ProviderError, get_json
+from meu_passeio.mcp_server.common.http import ProviderError, get_json
 from meu_passeio.shared.schemas import Coordinates, TravelMode
 from meu_passeio.texts import maps as T
 

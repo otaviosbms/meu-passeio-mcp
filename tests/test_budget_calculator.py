@@ -1,6 +1,6 @@
 import pytest
 
-from meu_passeio.mcp_servers.budget.calculator import (
+from meu_passeio.mcp_server.budget.calculator import (
     CostItem,
     calculate_budget_breakdown,
     calculate_fuel_cost,

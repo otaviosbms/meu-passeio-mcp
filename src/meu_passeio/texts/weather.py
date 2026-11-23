@@ -1,9 +1,4 @@
-"""Textos do Weather MCP Server."""
-
-INSTRUCTIONS = (
-    "Previsão diária (Open-Meteo), disponível até {max_days} dias à frente. "
-    "Para datas mais distantes, a previsão não existe: comunique a incerteza."
-)
+"""Textos das tools de clima."""
 
 
 class Tools:

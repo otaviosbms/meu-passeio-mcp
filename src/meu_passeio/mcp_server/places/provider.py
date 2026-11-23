@@ -13,9 +13,9 @@ from typing import Any
 
 import httpx
 
-from meu_passeio.mcp_servers.common.geo import haversine_km
-from meu_passeio.mcp_servers.common.http import ProviderError, get_json, post_form_json
-from meu_passeio.mcp_servers.places.schemas import Place, PlaceDetails
+from meu_passeio.mcp_server.common.geo import haversine_km
+from meu_passeio.mcp_server.common.http import ProviderError, get_json, post_form_json
+from meu_passeio.mcp_server.places.schemas import Place, PlaceDetails
 from meu_passeio.shared.schemas import Coordinates
 from meu_passeio.texts import places as T
 from meu_passeio.texts.common import ProviderErrors

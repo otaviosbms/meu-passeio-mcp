@@ -1,6 +1,5 @@
-"""Maps MCP Server — distâncias, rotas, tempos de deslocamento e ordenação de paradas.
+"""Tools de mapas — distâncias, rotas, tempos de deslocamento e ordenação de paradas.
 
-Execução (stdio):  python -m meu_passeio.mcp_servers.maps
 Textos (descrições, notas, erros): meu_passeio/texts/maps.py
 """
 
@@ -12,16 +11,15 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from meu_passeio.core.logging import configure_logging
-from meu_passeio.mcp_servers.common.errors import safe_tool
-from meu_passeio.mcp_servers.common.geo import haversine_km
-from meu_passeio.mcp_servers.common.http import build_client
-from meu_passeio.mcp_servers.maps.provider import SOURCE, OsrmProvider
+from meu_passeio.mcp_server.common.errors import safe_tool
+from meu_passeio.mcp_server.common.geo import haversine_km
+from meu_passeio.mcp_server.common.http import build_client
+from meu_passeio.mcp_server.maps.provider import SOURCE, OsrmProvider
 from meu_passeio.shared.schemas import Coordinates, TravelMode
 from meu_passeio.texts import maps as T
 
-mcp = MCPServer(name="meu-passeio-maps", instructions=T.INSTRUCTIONS)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
+LOCAL = ToolAnnotations(readOnlyHint=True, openWorldHint=False)
 _provider: OsrmProvider | None = None
 
 
@@ -67,10 +65,6 @@ class OptimizedStops(BaseModel):
 ModeArg = Annotated[TravelMode, Field(description=T.Params.TRAVEL_MODE)]
 
 
-@mcp.tool(
-    description=T.Tools.CALCULATE_DISTANCE,
-    annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False),
-)
 @safe_tool
 async def calculate_distance(origin: Coordinates, destination: Coordinates) -> DistanceResult:
     km = haversine_km(
@@ -79,7 +73,6 @@ async def calculate_distance(origin: Coordinates, destination: Coordinates) -> D
     return DistanceResult(straight_line_km=round(km, 3))
 
 
-@mcp.tool(description=T.Tools.GET_ROUTE, annotations=READ_ONLY)
 @safe_tool
 async def get_route(
     origin: Coordinates,
@@ -91,7 +84,6 @@ async def get_route(
     return RouteResult(travel_mode=travel_mode, **data)
 
 
-@mcp.tool(description=T.Tools.GET_TRAVEL_TIME, annotations=READ_ONLY)
 @safe_tool
 async def get_travel_time(
     origins: Annotated[list[Coordinates], Field(min_length=1, max_length=10)],
@@ -106,7 +98,6 @@ async def get_travel_time(
     )
 
 
-@mcp.tool(description=T.Tools.OPTIMIZE_STOPS, annotations=READ_ONLY)
 @safe_tool
 async def optimize_stops(
     stops: Annotated[
@@ -125,10 +116,8 @@ async def optimize_stops(
     )
 
 
-def main() -> None:
-    configure_logging()
-    mcp.run("stdio")
-
-
-if __name__ == "__main__":
-    main()
+def register(mcp: MCPServer) -> None:
+    mcp.add_tool(calculate_distance, description=T.Tools.CALCULATE_DISTANCE, annotations=LOCAL)
+    mcp.add_tool(get_route, description=T.Tools.GET_ROUTE, annotations=READ_ONLY)
+    mcp.add_tool(get_travel_time, description=T.Tools.GET_TRAVEL_TIME, annotations=READ_ONLY)
+    mcp.add_tool(optimize_stops, description=T.Tools.OPTIMIZE_STOPS, annotations=READ_ONLY)

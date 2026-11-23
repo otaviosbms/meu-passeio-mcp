@@ -1,10 +1,11 @@
-"""Testes ponta a ponta da API com o Budget MCP Server real (stdio)."""
+"""Testes ponta a ponta da API com o MCP Server do Meu Passeio real (stdio)."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
+from conftest import SERVER
 from fastapi.testclient import TestClient
 
 from meu_passeio.api.main import create_app
@@ -29,10 +30,10 @@ PLAN = {
 
 
 @pytest.fixture
-def client(tmp_path: Path, budget_only_config: Path):
+def client(tmp_path: Path, mcp_test_config: Path):
     settings = Settings(
         database_url=f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}",
-        mcp_config_path=budget_only_config,
+        mcp_config_path=mcp_test_config,
     )
     with TestClient(create_app(settings)) as test_client:
         yield test_client
@@ -40,18 +41,21 @@ def client(tmp_path: Path, budget_only_config: Path):
 
 def test_health_and_mcp_catalog(client: TestClient):
     health = client.get("/health").json()
-    assert health["mcp_servers"]["budget"] == "connected"
+    assert health["mcp_servers"][SERVER] == "connected"
     assert health["status"] == "degraded"  # o server "broken" falhou, mas a API segue
 
     tools = client.get("/mcp/tools").json()
-    assert {t["server"] for t in tools} == {"budget"}
+    assert {t["server"] for t in tools} == {SERVER}
+    assert len(tools) == 12
 
     call = client.post(
-        "/mcp/tools/budget/calculate_budget_breakdown", json={"total_budget": 400, "days": 2}
+        f"/mcp/tools/{SERVER}/calculate_budget_breakdown", json={"total_budget": 400, "days": 2}
     ).json()
     assert call["ok"] and call["data"]["per_person_per_day"] == 200
 
-    invalid = client.post("/mcp/tools/budget/calculate_budget_breakdown", json={"days": 0}).json()
+    invalid = client.post(
+        f"/mcp/tools/{SERVER}/calculate_budget_breakdown", json={"days": 0}
+    ).json()
     assert not invalid["ok"] and "inválidos" in invalid["error"]
 
 

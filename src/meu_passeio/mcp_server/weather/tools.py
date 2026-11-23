@@ -1,6 +1,5 @@
-"""Weather MCP Server — previsão do tempo para planejamento de atividades.
+"""Tools de clima — previsão do tempo para planejamento de atividades.
 
-Execução (stdio):  python -m meu_passeio.mcp_servers.weather
 Textos (descrições, notas, erros): meu_passeio/texts/weather.py
 """
 
@@ -14,17 +13,12 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
-from meu_passeio.core.logging import configure_logging
-from meu_passeio.mcp_servers.common.errors import safe_tool
-from meu_passeio.mcp_servers.common.http import build_client
-from meu_passeio.mcp_servers.weather.provider import MAX_FORECAST_DAYS, SOURCE, OpenMeteoProvider
+from meu_passeio.mcp_server.common.errors import safe_tool
+from meu_passeio.mcp_server.common.http import build_client
+from meu_passeio.mcp_server.weather.provider import MAX_FORECAST_DAYS, SOURCE, OpenMeteoProvider
 from meu_passeio.shared.schemas import Coordinates
 from meu_passeio.texts import weather as T
 
-mcp = MCPServer(
-    name="meu-passeio-weather",
-    instructions=T.INSTRUCTIONS.format(max_days=MAX_FORECAST_DAYS),
-)
 READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 _provider: OpenMeteoProvider | None = None
 
@@ -113,7 +107,6 @@ async def _forecast(
     )
 
 
-@mcp.tool(description=T.Tools.GET_FORECAST, annotations=READ_ONLY)
 @safe_tool
 async def get_forecast(
     start_date: Annotated[date, Field(description=T.Params.START_DATE)],
@@ -124,7 +117,6 @@ async def get_forecast(
     return await _forecast(location, coordinates, start_date, end_date)
 
 
-@mcp.tool(description=T.Tools.GET_WEATHER_BY_DATE, annotations=READ_ONLY)
 @safe_tool
 async def get_weather_by_date(
     target_date: Annotated[date, Field(description=T.Params.TARGET_DATE)],
@@ -134,10 +126,8 @@ async def get_weather_by_date(
     return await _forecast(location, coordinates, target_date, target_date)
 
 
-def main() -> None:
-    configure_logging()
-    mcp.run("stdio")
-
-
-if __name__ == "__main__":
-    main()
+def register(mcp: MCPServer) -> None:
+    mcp.add_tool(get_forecast, description=T.Tools.GET_FORECAST, annotations=READ_ONLY)
+    mcp.add_tool(
+        get_weather_by_date, description=T.Tools.GET_WEATHER_BY_DATE, annotations=READ_ONLY
+    )

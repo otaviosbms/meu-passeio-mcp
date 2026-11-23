@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-from meu_passeio.mcp_servers.common.http import ProviderError, get_json
+from meu_passeio.mcp_server.common.http import ProviderError, get_json
 from meu_passeio.shared.schemas import Coordinates
 from meu_passeio.texts import weather as T
 from meu_passeio.texts.common import ProviderErrors
