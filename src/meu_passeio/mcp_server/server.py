@@ -20,6 +20,7 @@ from meu_passeio.core.logging import configure_logging
 from meu_passeio.mcp_server.budget import tools as budget_tools
 from meu_passeio.mcp_server.maps import tools as maps_tools
 from meu_passeio.mcp_server.places import tools as places_tools
+from meu_passeio.mcp_server.planning import tools as planning_tools
 from meu_passeio.mcp_server.weather import tools as weather_tools
 from meu_passeio.mcp_server.weather.provider import MAX_FORECAST_DAYS
 from meu_passeio.texts import server as T
@@ -34,7 +35,7 @@ def create_server() -> MCPServer:
         version=__version__,
         instructions=T.INSTRUCTIONS.format(max_days=MAX_FORECAST_DAYS),
     )
-    for module in (places_tools, maps_tools, weather_tools, budget_tools):
+    for module in (places_tools, maps_tools, weather_tools, budget_tools, planning_tools):
         module.register(mcp)
 
     @mcp.prompt(

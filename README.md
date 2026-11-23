@@ -46,7 +46,8 @@ meu-passeio-mcp/
 │       ├── places/                   # search_places, search_restaurants, get_place_details
 │       ├── maps/                     # calculate_distance, get_route, get_travel_time, optimize_stops
 │       ├── weather/                  # get_forecast, get_weather_by_date
-│       └── budget/                   # calculate_fuel_cost, estimate_trip_cost, calculate_budget_breakdown
+│       ├── budget/                   # combustível (ANP), refeições, custos e orçamento
+│       └── planning/                 # bate-volta e agenda do dia
 ├── tests/
 ├── Dockerfile · docker-compose.yml
 └── pyproject.toml
@@ -59,7 +60,8 @@ meu-passeio-mcp/
 | **places** | `search_places`, `search_restaurants`, `get_place_details`, `check_opening_hours`, `find_nearby`, `search_along_route` | **Google Places API (New)**: nota, nº de avaliações, nível e faixa de preço, horários (com feriados nos próximos 7 dias), avaliações, comodidades. Alternativa: OpenStreetMap (Overpass + Nominatim) |
 | **maps** | `calculate_distance`, `get_route`, `estimate_toll_costs`, `get_travel_time`, `optimize_stops` | **Google Routes API**: trânsito para o horário de saída, pedágios em R$, rotas alternativas, ordem otimizada de paradas. Alternativa: OSRM (sem trânsito e sem pedágio) |
 | **weather** | `get_forecast`, `get_weather_by_date` | Open-Meteo — até 16 dias à frente; datas além disso são sinalizadas |
-| **budget** | `calculate_fuel_cost`, `estimate_trip_cost`, `calculate_budget_breakdown` | Cálculos próprios, determinísticos |
+| **budget** | `get_fuel_price`, `calculate_fuel_cost`, `estimate_meal_cost`, `estimate_trip_cost`, `calculate_budget_breakdown` | **ANP** (preço de combustível por município, últimas 2 semanas, com média do estado quando a cidade não é pesquisada); **Google Maps** (custo de refeição pela faixa de preço dos restaurantes); consolidação com a fonte de cada valor (real × suposição) |
+| **planning** | `suggest_day_trip_destinations`, `optimize_day_itinerary` | Bate-voltas até X horas de carro (atrações bem avaliadas agrupadas por município, tempo real com trânsito) e agenda do dia (ordem otimizada, horários de chegada/saída, conferência de funcionamento) |
 
 Tudo roda num único processo (`python -m meu_passeio.mcp_server`) que fala MCP via stdio. As
 instruções do server explicam como combinar as áreas para montar um roteiro, e o prompt
@@ -159,4 +161,7 @@ testes ponta a ponta da API.
 - [ ] Frontend (React) com cards, mapa e roteiro por dia
 - [ ] Transporte streamable HTTP para uso remoto
 - [ ] Migrações com Alembic
+- [x] Google Maps (lugares e rotas) — Fase 1
+- [x] Custos reais (ANP, refeições) e planejamento de bate-volta/dia — Fase 2
+- [ ] Clima histórico, nascer/pôr do sol, feriados, câmbio — Fase 3
 - [ ] Tools de hospedagem e de transporte

@@ -67,6 +67,8 @@ class Place(BaseModel):
     cuisine: str | None = None
     website: str | None = None
     google_maps_uri: str | None = None
+    town: str | None = Field(default=None, description=T.Fields.TOWN)
+    state_code: str | None = None
     source: str = T.Sources.OSM
 
 

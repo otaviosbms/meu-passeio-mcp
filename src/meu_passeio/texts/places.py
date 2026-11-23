@@ -84,6 +84,7 @@ class Fields:
     REVIEW_PUBLISHED = "Quando foi publicada (texto relativo do Google)"
     AMENITIES = "Comodidades informadas pelo Google (acessibilidade, estacionamento, pagamento…)"
     IS_OPEN = "true/false; null quando o provedor não informa horários"
+    TOWN = "Município do lugar (Google), quando pedido"
 
 
 class Notes:

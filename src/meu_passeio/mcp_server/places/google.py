@@ -133,6 +133,26 @@ def _price_range(raw: dict[str, Any] | None) -> PriceRange | None:
     return PriceRange(min=money_to_float(start), max=money_to_float(end), currency=currency)
 
 
+def _town(components: list[dict[str, Any]] | None) -> tuple[str | None, str | None]:
+    """Município (administrative_area_level_2 no Brasil, senão locality) e UF."""
+    town = state = None
+    for kind in ("administrative_area_level_2", "locality"):
+        town = next(
+            (c.get("longText") for c in components or [] if kind in c.get("types", [])), None
+        )
+        if town:
+            break
+    state = next(
+        (
+            c.get("shortText")
+            for c in components or []
+            if "administrative_area_level_1" in c.get("types", [])
+        ),
+        None,
+    )
+    return town, state
+
+
 def _to_place(raw: dict[str, Any], center: Coordinates | None) -> Place:
     location = raw.get("location") or {}
     coords = (
@@ -146,6 +166,7 @@ def _to_place(raw: dict[str, Any], center: Coordinates | None) -> Place:
         else None
     )
     current = raw.get("currentOpeningHours") or {}
+    town, state_code = _town(raw.get("addressComponents"))
     return Place(
         id=raw["id"],
         name=(raw.get("displayName") or {}).get("text") or raw["id"],
@@ -161,6 +182,8 @@ def _to_place(raw: dict[str, Any], center: Coordinates | None) -> Place:
         open_now=current.get("openNow"),
         business_status=raw.get("businessStatus"),
         google_maps_uri=raw.get("googleMapsUri"),
+        town=town,
+        state_code=state_code,
         source=T.Sources.GOOGLE,
     )
 
@@ -204,13 +227,23 @@ class GooglePlacesProvider:
         price_levels: list[str] | None = None,
         rank_by_distance: bool = False,
         route_polyline: str | None = None,
+        rectangle: tuple[Coordinates, Coordinates] | None = None,
+        with_address_components: bool = False,
     ) -> tuple[list[Place], int]:
         body: dict[str, Any] = {
             "textQuery": text_query,
             "pageSize": MAX_PAGE_SIZE,
             **self._locale(),
         }
-        if center is not None and radius_km and route_polyline is None:
+        if rectangle is not None:
+            low, high = rectangle
+            body["locationRestriction"] = {
+                "rectangle": {
+                    "low": {"latitude": low.latitude, "longitude": low.longitude},
+                    "high": {"latitude": high.latitude, "longitude": high.longitude},
+                }
+            }
+        elif center is not None and radius_km and route_polyline is None:
             body["locationBias"] = _circle(center, radius_km * 1000)
         if route_polyline:
             body["searchAlongRouteParameters"] = {"polyline": {"encodedPolyline": route_polyline}}
@@ -225,14 +258,15 @@ class GooglePlacesProvider:
         if rank_by_distance and route_polyline is None:
             body["rankPreference"] = "DISTANCE"
 
+        fields = SEARCH_FIELDS + (["addressComponents"] if with_address_components else [])
         data = await self._client.post(
-            f"{BASE_URL}/places:searchText", body, field_mask=_mask(SEARCH_FIELDS, "places.")
+            f"{BASE_URL}/places:searchText", body, field_mask=_mask(fields, "places.")
         )
         places = [_to_place(p, center) for p in data.get("places", [])]
         places = _filter_places(
             places,
             min_reviews=min_reviews,
-            radius_km=None if route_polyline else radius_km,
+            radius_km=None if (route_polyline or rectangle) else radius_km,
         )
         return places[:limit], len(places)
 

@@ -23,9 +23,13 @@ EXPECTED_TOOLS = {
     "optimize_stops",
     "get_forecast",
     "get_weather_by_date",
+    "get_fuel_price",
     "calculate_fuel_cost",
+    "estimate_meal_cost",
     "estimate_trip_cost",
     "calculate_budget_breakdown",
+    "suggest_day_trip_destinations",
+    "optimize_day_itinerary",
 }
 
 
@@ -40,7 +44,9 @@ async def test_single_server_exposes_all_tools(mcp_test_config: Path):
         assert tools == EXPECTED_TOOLS
 
         ok = await manager.call_tool(
-            SERVER, "calculate_fuel_cost", {"distance_km": 100, "fuel_price_per_liter": 6}
+            SERVER,
+            "calculate_fuel_cost",
+            {"distance_km": 100, "fuel_price_per_liter": 6},
         )
         assert ok.ok, ok.error
         assert ok.data["estimated_cost"] == 100.0  # 200 km / 12 km/l * 6

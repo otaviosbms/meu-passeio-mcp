@@ -7,7 +7,7 @@ com ``day`` 0 = domingo. Um único período sem ``close`` significa aberto 24 ho
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from meu_passeio.texts import places as T
@@ -20,6 +20,9 @@ class OpeningStatus:
     is_open: bool | None
     opens_at: str | None = None
     closes_at: str | None = None
+    # Mesmos instantes como datetime local (relativos a ``at``); None = sem limite/desconhecido
+    open_until: datetime | None = None
+    next_open: datetime | None = None
 
 
 def _minute_of_week(point: dict[str, Any]) -> int:
@@ -58,9 +61,17 @@ def opening_status(periods: list[dict[str, Any]] | None, at: datetime) -> Openin
     for start, end in intervals:
         for candidate in (now, now + MINUTES_PER_WEEK):
             if start <= candidate < end:
-                return OpeningStatus(is_open=True, closes_at=_label(end))
+                return OpeningStatus(
+                    is_open=True,
+                    closes_at=_label(end),
+                    open_until=at + timedelta(minutes=end - candidate),
+                )
 
     if not intervals:
         return OpeningStatus(is_open=None)
     next_start = min(intervals, key=lambda iv: (iv[0] - now) % MINUTES_PER_WEEK)[0]
-    return OpeningStatus(is_open=False, opens_at=_label(next_start))
+    return OpeningStatus(
+        is_open=False,
+        opens_at=_label(next_start),
+        next_open=at + timedelta(minutes=(next_start - now) % MINUTES_PER_WEEK),
+    )
