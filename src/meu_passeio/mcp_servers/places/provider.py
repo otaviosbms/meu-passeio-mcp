@@ -17,6 +17,8 @@ from meu_passeio.mcp_servers.common.geo import haversine_km
 from meu_passeio.mcp_servers.common.http import ProviderError, get_json, post_form_json
 from meu_passeio.mcp_servers.places.schemas import Place, PlaceDetails
 from meu_passeio.shared.schemas import Coordinates
+from meu_passeio.texts import places as T
+from meu_passeio.texts.common import ProviderErrors
 
 NOMINATIM_URL = os.getenv("NOMINATIM_URL", "https://nominatim.openstreetmap.org")
 # Instâncias públicas do Overpass costumam oscilar (429/502/504): tentamos em sequência.
@@ -198,7 +200,7 @@ class OsmPlacesProvider:
             provider="nominatim",
         )
         if not data:
-            raise ProviderError(f"Localização não encontrada: '{location}'.")
+            raise ProviderError(ProviderErrors.LOCATION_NOT_FOUND.format(location=location))
         first = data[0]
         return (
             Coordinates(latitude=float(first["lat"]), longitude=float(first["lon"])),
@@ -211,14 +213,14 @@ class OsmPlacesProvider:
         if coordinates is not None:
             return coordinates, None
         if not location:
-            raise ProviderError("Informe 'location' (texto) ou 'coordinates'.")
+            raise ProviderError(T.Errors.MISSING_LOCATION)
         return await self.geocode(location)
 
     async def _overpass(self, query: str) -> list[dict[str, Any]]:
         # Circuit breaker: se todas as instâncias falharam há pouco, nem tenta (vai direto ao
         # fallback) — evita que cada chamada espere N × timeout enquanto o Overpass está fora.
         if time.monotonic() < self._overpass_open_until:
-            raise ProviderError("Overpass temporariamente indisponível (circuit breaker aberto).")
+            raise ProviderError(T.Errors.OVERPASS_CIRCUIT_OPEN)
         last_error: ProviderError | None = None
         for url in OVERPASS_URLS:
             try:
@@ -233,7 +235,7 @@ class OsmPlacesProvider:
             except ProviderError as exc:
                 last_error = exc
         self._overpass_open_until = time.monotonic() + OVERPASS_COOLDOWN_SECONDS
-        raise last_error or ProviderError("Nenhuma instância Overpass configurada.")
+        raise last_error or ProviderError(T.Errors.OVERPASS_NOT_CONFIGURED)
 
     async def search_by_categories(
         self,
@@ -258,7 +260,7 @@ class OsmPlacesProvider:
                     f"(around:{radius_m},{center.latitude},{center.longitude});"
                 )
         if not statements:
-            raise ProviderError("Nenhuma categoria válida informada.")
+            raise ProviderError(T.Errors.NO_VALID_CATEGORY)
         timeout = int(OVERPASS_TIMEOUT_SECONDS)
         query = f"[out:json][timeout:{timeout}];({''.join(statements)});out center tags 200;"
         try:
@@ -295,7 +297,7 @@ class OsmPlacesProvider:
             )
             for place in found:
                 place.category = category
-                place.source = "openstreetmap (nominatim fallback)"
+                place.source = T.Sources.NOMINATIM_FALLBACK
                 places.setdefault(place.id, place)
         ordered = sorted(places.values(), key=lambda p: p.distance_km or 0)
         return ordered[:limit], len(ordered)
@@ -349,7 +351,7 @@ class OsmPlacesProvider:
     async def details(self, place_id: str) -> PlaceDetails:
         match = re.fullmatch(r"osm:(node|way|relation):(\d+)", place_id)
         if not match:
-            raise ProviderError("place_id inválido. Formato esperado: osm:<node|way|relation>:<id>")
+            raise ProviderError(T.Errors.INVALID_PLACE_ID)
         osm_type, osm_id = match.groups()
         try:
             elements = await self._overpass(
@@ -359,12 +361,12 @@ class OsmPlacesProvider:
         except ProviderError:
             return await self._details_via_nominatim(place_id, osm_type, osm_id)
         if not elements:
-            raise ProviderError(f"Lugar não encontrado: {place_id}")
+            raise ProviderError(T.Errors.PLACE_NOT_FOUND.format(place_id=place_id))
         element = elements[0]
         tags: dict[str, str] = element.get("tags", {})
         base = _element_to_place(element, None)
         if base is None:
-            raise ProviderError(f"Lugar sem nome no provedor: {place_id}")
+            raise ProviderError(T.Errors.PLACE_WITHOUT_NAME.format(place_id=place_id))
         return PlaceDetails(
             **base.model_dump(),
             phone=tags.get("phone") or tags.get("contact:phone"),
@@ -387,7 +389,7 @@ class OsmPlacesProvider:
             provider="nominatim",
         )
         if not data:
-            raise ProviderError(f"Lugar não encontrado: {place_id}")
+            raise ProviderError(T.Errors.PLACE_NOT_FOUND.format(place_id=place_id))
         item = data[0]
         extratags: dict[str, str] = item.get("extratags") or {}
         name = item.get("name") or (item.get("display_name") or "").split(",")[0]
@@ -404,5 +406,5 @@ class OsmPlacesProvider:
             phone=extratags.get("phone") or extratags.get("contact:phone"),
             wheelchair=extratags.get("wheelchair"),
             tags={k: v for k, v in extratags.items() if k in _DETAIL_TAGS},
-            source="openstreetmap (nominatim fallback)",
+            source=T.Sources.NOMINATIM_FALLBACK,
         )

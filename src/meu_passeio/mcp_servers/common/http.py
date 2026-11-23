@@ -8,6 +8,8 @@ from typing import Any
 
 import httpx
 
+from meu_passeio.texts.common import ProviderErrors
+
 logger = logging.getLogger(__name__)
 
 # Provedores públicos (Nominatim/Overpass/OSRM) exigem um User-Agent identificável.
@@ -36,13 +38,13 @@ async def get_json(
         response.raise_for_status()
         return response.json()
     except httpx.TimeoutException as exc:
-        raise ProviderError(f"Provedor '{provider}' não respondeu a tempo.") from exc
+        raise ProviderError(ProviderErrors.TIMEOUT.format(provider=provider)) from exc
     except httpx.HTTPStatusError as exc:
         raise ProviderError(
-            f"Provedor '{provider}' retornou HTTP {exc.response.status_code}."
+            ProviderErrors.HTTP_STATUS.format(provider=provider, status=exc.response.status_code)
         ) from exc
     except (httpx.HTTPError, ValueError) as exc:
-        raise ProviderError(f"Falha ao consultar o provedor '{provider}'.") from exc
+        raise ProviderError(ProviderErrors.REQUEST_FAILED.format(provider=provider)) from exc
 
 
 async def post_form_json(
@@ -61,10 +63,10 @@ async def post_form_json(
         response.raise_for_status()
         return response.json()
     except httpx.TimeoutException as exc:
-        raise ProviderError(f"Provedor '{provider}' não respondeu a tempo.") from exc
+        raise ProviderError(ProviderErrors.TIMEOUT.format(provider=provider)) from exc
     except httpx.HTTPStatusError as exc:
         raise ProviderError(
-            f"Provedor '{provider}' retornou HTTP {exc.response.status_code}."
+            ProviderErrors.HTTP_STATUS.format(provider=provider, status=exc.response.status_code)
         ) from exc
     except (httpx.HTTPError, ValueError) as exc:
-        raise ProviderError(f"Falha ao consultar o provedor '{provider}'.") from exc
+        raise ProviderError(ProviderErrors.REQUEST_FAILED.format(provider=provider)) from exc

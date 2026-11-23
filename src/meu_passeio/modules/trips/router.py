@@ -5,27 +5,26 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from meu_passeio.api.dependencies import get_trip_service
-from meu_passeio.modules.trips.schemas import (
-    ClarifyTripRequest,
-    CreateTripRequest,
-    ReviseTripRequest,
-    TripListItem,
-    TripResponse,
-)
-from meu_passeio.modules.trips.service import InvalidTripState, TripNotFound, TripService
+from meu_passeio.modules.trips.schemas import TripListItem, TripResponse, TripWrite
+from meu_passeio.modules.trips.service import TripNotFound, TripService
+from meu_passeio.texts.api import Http, Routes
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 ServiceDep = Annotated[TripService, Depends(get_trip_service)]
 
 
 def _not_found() -> HTTPException:
-    return HTTPException(status.HTTP_404_NOT_FOUND, "Viagem não encontrada.")
+    return HTTPException(status.HTTP_404_NOT_FOUND, Http.TRIP_NOT_FOUND)
 
 
-@router.post("", response_model=TripResponse, status_code=status.HTTP_201_CREATED)
-async def create_trip(body: CreateTripRequest, service: ServiceDep):
-    """Planeja uma viagem a partir de uma descrição em linguagem natural."""
-    return await service.create(body.request)
+@router.post(
+    "",
+    response_model=TripResponse,
+    status_code=status.HTTP_201_CREATED,
+    description=Routes.CREATE_TRIP,
+)
+async def create_trip(body: TripWrite, service: ServiceDep):
+    return await service.create(body)
 
 
 @router.get("", response_model=list[TripListItem])
@@ -45,26 +44,12 @@ async def get_trip(trip_id: str, service: ServiceDep):
         raise _not_found() from None
 
 
-@router.post("/{trip_id}/clarify", response_model=TripResponse)
-async def clarify_trip(trip_id: str, body: ClarifyTripRequest, service: ServiceDep):
-    """Responde às perguntas do planner e reexecuta o planejamento."""
+@router.put("/{trip_id}", response_model=TripResponse, description=Routes.UPDATE_TRIP)
+async def update_trip(trip_id: str, body: TripWrite, service: ServiceDep):
     try:
-        return await service.clarify(trip_id, body.answer)
+        return await service.update(trip_id, body)
     except TripNotFound:
         raise _not_found() from None
-    except InvalidTripState as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
-
-
-@router.post("/{trip_id}/revise", response_model=TripResponse)
-async def revise_trip(trip_id: str, body: ReviseTripRequest, service: ServiceDep):
-    """Edição conversacional: altera só o necessário e preserva o restante do roteiro."""
-    try:
-        return await service.revise(trip_id, body.instruction)
-    except TripNotFound:
-        raise _not_found() from None
-    except InvalidTripState as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from None
 
 
 @router.delete("/{trip_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -6,7 +6,7 @@ Responsabilidades (seção 2 da arquitetura):
 - normalizar resultados sem perder a origem (server/tool);
 - registrar observabilidade (server, tool, duração, status) sem logar payloads.
 
-O agente nunca vê detalhes de transporte: ele trabalha apenas com o ToolCatalog.
+Quem usa o manager nunca vê detalhes de transporte: trabalha apenas com o ToolCatalog.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ import asyncio
 import json
 import logging
 import time
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -25,12 +24,9 @@ from mcp.client.stdio import get_default_environment, stdio_client
 
 from meu_passeio.modules.mcp.config import McpServerConfig
 from meu_passeio.modules.mcp.tool_catalog import ToolCatalog, ToolDefinition
+from meu_passeio.texts.api import Mcp
 
 logger = logging.getLogger(__name__)
-
-# Contexto de execução para correlacionar logs de tool calls com a viagem/execução.
-current_trip_id: ContextVar[str | None] = ContextVar("current_trip_id", default=None)
-current_run_id: ContextVar[str | None] = ContextVar("current_run_id", default=None)
 
 ConnectionStatus = Literal["disconnected", "connecting", "connected", "failed"]
 
@@ -43,18 +39,6 @@ class ToolCallResult:
     data: Any = None
     error: str | None = None
     duration_ms: int = 0
-
-    def to_model_payload(self) -> str:
-        """Conteúdo enviado ao LLM — sempre com a origem dos dados."""
-        if self.ok:
-            return json.dumps(
-                {"source": f"mcp:{self.server}/{self.tool}", "result": self.data},
-                ensure_ascii=False,
-                default=str,
-            )
-        return json.dumps(
-            {"source": f"mcp:{self.server}/{self.tool}", "error": self.error}, ensure_ascii=False
-        )
 
 
 class McpServerUnavailable(RuntimeError):
@@ -135,7 +119,7 @@ class McpConnection:
             try:
                 await asyncio.wait_for(self._ready.wait(), timeout=timeout)
             except TimeoutError:
-                self.status, self.last_error = "failed", "timeout ao inicializar"
+                self.status, self.last_error = "failed", Mcp.INIT_TIMEOUT
                 self._stop.set()
             if self.status != "connected":
                 raise McpServerUnavailable(f"{self.name}: {self.last_error}")
@@ -219,7 +203,7 @@ class McpClientManager:
     async def _ensure(self, server: str) -> McpConnection:
         conn = self._connections.get(server)
         if conn is None:
-            raise McpServerUnavailable(f"Server MCP desconhecido ou desabilitado: {server}")
+            raise McpServerUnavailable(Mcp.SERVER_UNKNOWN.format(server=server))
         if conn.status != "connected" or conn.session is None:
             await conn.start(self._connect_timeout)
             self._rebuild_catalog()
@@ -230,9 +214,7 @@ class McpClientManager:
         definition = self.catalog.get_by_parts(server, tool)
         result: ToolCallResult
         if definition is None:
-            result = ToolCallResult(
-                server, tool, ok=False, error="Tool não permitida ou inexistente."
-            )
+            result = ToolCallResult(server, tool, ok=False, error=Mcp.TOOL_NOT_ALLOWED)
         else:
             validation_error = definition.validate_arguments(arguments)
             if validation_error:
@@ -248,7 +230,7 @@ class McpClientManager:
     ) -> ToolCallResult:
         conn = self._connections.get(server)
         attempts = 1 + (conn.config.retries if conn else 0)
-        last_error = "erro desconhecido"
+        last_error = Mcp.UNKNOWN_ERROR
         for attempt in range(attempts):
             try:
                 conn = await self._ensure(server)
@@ -257,20 +239,24 @@ class McpClientManager:
                     conn.session.call_tool(tool, arguments), timeout=conn.config.timeout_seconds
                 )
                 if not isinstance(raw, types.CallToolResult):
-                    return ToolCallResult(server, tool, ok=False, error="Resposta MCP inesperada.")
+                    return ToolCallResult(server, tool, ok=False, error=Mcp.UNEXPECTED_RESPONSE)
                 if raw.is_error:
                     # Erro de negócio/provedor: não é transitório do ponto de vista do client.
                     message = " ".join(
                         c.text for c in raw.content if isinstance(c, types.TextContent)
                     )
-                    return ToolCallResult(server, tool, ok=False, error=message or "Erro na tool.")
+                    return ToolCallResult(server, tool, ok=False, error=message or Mcp.TOOL_ERROR)
                 return ToolCallResult(server, tool, ok=True, data=_normalize(raw))
             except TimeoutError:
-                last_error = f"Timeout após {conn.config.timeout_seconds if conn else '?'}s."
+                last_error = Mcp.TIMEOUT.format(
+                    seconds=conn.config.timeout_seconds if conn else "?"
+                )
             except McpServerUnavailable as exc:
-                return ToolCallResult(server, tool, ok=False, error=f"Server indisponível: {exc}")
+                return ToolCallResult(
+                    server, tool, ok=False, error=Mcp.SERVER_UNAVAILABLE.format(error=exc)
+                )
             except Exception as exc:  # noqa: BLE001 — conexão caiu: tenta reconectar
-                last_error = f"Falha de comunicação com o server ({type(exc).__name__})."
+                last_error = Mcp.COMMUNICATION_FAILURE.format(error_type=type(exc).__name__)
                 if conn:
                     conn.status = "failed"
             if attempt < attempts - 1:
@@ -287,8 +273,6 @@ class McpClientManager:
         logger.info(
             "mcp_tool_call",
             extra={
-                "tripId": current_trip_id.get(),
-                "workflowRunId": current_run_id.get(),
                 "mcpServer": result.server,
                 "tool": result.tool,
                 "durationMs": result.duration_ms,

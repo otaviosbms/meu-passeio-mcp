@@ -1,8 +1,8 @@
 """Catálogo de tools descobertas nos MCP Servers.
 
-Mantém nome, descrição, schema de entrada e o server de origem de cada tool, valida
-argumentos com JSON Schema e converte as tools para o formato do LLM — sempre filtrando
-por uma allowlist (o agente só enxerga as tools permitidas para a etapa atual).
+Mantém nome, descrição, schema de entrada e o server de origem de cada tool e valida
+argumentos com JSON Schema antes de qualquer chamada. A allowlist por server
+(``allowed_tools`` no YAML) é aplicada ao montar o catálogo.
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from jsonschema import Draft202012Validator
+
+from meu_passeio.texts.api import Mcp
 
 SEPARATOR = "__"
 
@@ -38,14 +40,7 @@ class ToolDefinition:
         details = "; ".join(
             f"{'/'.join(str(p) for p in e.path) or '(raiz)'}: {e.message}" for e in errors[:5]
         )
-        return f"Argumentos inválidos para {self.qualified_name}: {details}"
-
-    def to_llm_tool(self) -> dict[str, Any]:
-        return {
-            "name": self.qualified_name,
-            "description": f"[{self.server}] {self.description}".strip(),
-            "input_schema": self.input_schema,
-        }
+        return Mcp.INVALID_ARGUMENTS.format(tool=self.qualified_name, details=details)
 
     def public_view(self) -> dict[str, Any]:
         return {
@@ -73,23 +68,3 @@ class ToolCatalog:
 
     def get_by_parts(self, server: str, tool: str) -> ToolDefinition | None:
         return self._tools.get(f"{server}{SEPARATOR}{tool}")
-
-    @staticmethod
-    def split(qualified_name: str) -> tuple[str, str]:
-        server, _, tool = qualified_name.partition(SEPARATOR)
-        return server, tool
-
-    def select(self, allowlist: Iterable[str] | None = None) -> list[ToolDefinition]:
-        """Seleciona tools por allowlist. Aceita 'server__tool' ou 'server__*'."""
-        if allowlist is None:
-            return self.all()
-        patterns = list(allowlist)
-        selected = []
-        for definition in self._tools.values():
-            for pattern in patterns:
-                if pattern == definition.qualified_name or (
-                    pattern.endswith("*") and definition.qualified_name.startswith(pattern[:-1])
-                ):
-                    selected.append(definition)
-                    break
-        return selected

@@ -10,6 +10,7 @@ from typing import ParamSpec, TypeVar
 from mcp.server.mcpserver.exceptions import ToolError
 
 from meu_passeio.mcp_servers.common.http import ProviderError
+from meu_passeio.texts.common import ToolErrors
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -25,9 +26,9 @@ def safe_tool(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
         except ProviderError as exc:
             raise ToolError(str(exc)) from exc
         except ValueError as exc:
-            raise ToolError(f"Argumentos inválidos: {exc}") from exc
+            raise ToolError(ToolErrors.INVALID_ARGUMENTS.format(details=exc)) from exc
         except Exception as exc:  # noqa: BLE001 — nunca vazar detalhes internos ao client
             logger.exception("tool_unexpected_error", extra={"tool": func.__name__})
-            raise ToolError("Erro interno ao executar a ferramenta.") from exc
+            raise ToolError(ToolErrors.INTERNAL) from exc
 
     return wrapper

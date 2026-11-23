@@ -1,6 +1,7 @@
 """Weather MCP Server — previsão do tempo para planejamento de atividades.
 
 Execução (stdio):  python -m meu_passeio.mcp_servers.weather
+Textos (descrições, notas, erros): meu_passeio/texts/weather.py
 """
 
 from __future__ import annotations
@@ -18,13 +19,11 @@ from meu_passeio.mcp_servers.common.errors import safe_tool
 from meu_passeio.mcp_servers.common.http import build_client
 from meu_passeio.mcp_servers.weather.provider import MAX_FORECAST_DAYS, SOURCE, OpenMeteoProvider
 from meu_passeio.shared.schemas import Coordinates
+from meu_passeio.texts import weather as T
 
 mcp = MCPServer(
     name="meu-passeio-weather",
-    instructions=(
-        f"Previsão diária (Open-Meteo), disponível até {MAX_FORECAST_DAYS} dias à frente. "
-        "Para datas mais distantes, a previsão não existe: comunique a incerteza."
-    ),
+    instructions=T.INSTRUCTIONS.format(max_days=MAX_FORECAST_DAYS),
 )
 READ_ONLY = ToolAnnotations(readOnlyHint=True, openWorldHint=True)
 _provider: OpenMeteoProvider | None = None
@@ -60,17 +59,14 @@ class ForecastResult(BaseModel):
     source: str = SOURCE
 
 
-LocationArg = Annotated[
-    str | None,
-    Field(description="Cidade em texto, ex.: 'Campos do Jordão, SP'. Ou use coordinates."),
-]
+LocationArg = Annotated[str | None, Field(description=T.Params.LOCATION)]
 
 
 async def _resolve(location: str | None, coordinates: Coordinates | None):
     if coordinates is not None:
         return coordinates, None
     if not location:
-        raise ValueError("Informe 'location' ou 'coordinates'.")
+        raise ValueError(T.Errors.MISSING_LOCATION)
     return await provider().geocode(location)
 
 
@@ -78,9 +74,9 @@ async def _forecast(
     location: str | None, coordinates: Coordinates | None, start: date, end: date
 ) -> ForecastResult:
     if end < start:
-        raise ValueError("end_date deve ser >= start_date.")
+        raise ValueError(T.Errors.END_BEFORE_START)
     if (end - start).days > 30:
-        raise ValueError("Intervalo máximo de 31 dias.")
+        raise ValueError(T.Errors.RANGE_TOO_LONG)
     coords, resolved = await _resolve(location, coordinates)
 
     today = date.today()
@@ -94,7 +90,7 @@ async def _forecast(
         raw, timezone = await provider().daily_forecast(coords, window_start, window_end)
         days = [DailyWeather(**d) for d in raw]
         if (window_start - today).days > 7:
-            notes.append("Previsões com mais de 7 dias de antecedência têm baixa confiabilidade.")
+            notes.append(T.Notes.LOW_CONFIDENCE)
 
     covered = {d.date for d in days}
     unavailable = [
@@ -104,8 +100,7 @@ async def _forecast(
     ]
     if unavailable:
         notes.append(
-            f"Sem previsão para {len(unavailable)} data(s): fora do horizonte de "
-            f"{MAX_FORECAST_DAYS} dias ou no passado. Planeje com alternativas indoor."
+            T.Notes.UNAVAILABLE_DATES.format(count=len(unavailable), max_days=MAX_FORECAST_DAYS)
         )
     return ForecastResult(
         location=coords,
@@ -118,26 +113,24 @@ async def _forecast(
     )
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(description=T.Tools.GET_FORECAST, annotations=READ_ONLY)
 @safe_tool
 async def get_forecast(
-    start_date: Annotated[date, Field(description="Data inicial (YYYY-MM-DD)")],
-    end_date: Annotated[date, Field(description="Data final (YYYY-MM-DD)")],
+    start_date: Annotated[date, Field(description=T.Params.START_DATE)],
+    end_date: Annotated[date, Field(description=T.Params.END_DATE)],
     location: LocationArg = None,
     coordinates: Coordinates | None = None,
 ) -> ForecastResult:
-    """Previsão diária (condição, temperaturas, chuva, vento, UV) para um intervalo de datas."""
     return await _forecast(location, coordinates, start_date, end_date)
 
 
-@mcp.tool(annotations=READ_ONLY)
+@mcp.tool(description=T.Tools.GET_WEATHER_BY_DATE, annotations=READ_ONLY)
 @safe_tool
 async def get_weather_by_date(
-    target_date: Annotated[date, Field(description="Data (YYYY-MM-DD)")],
+    target_date: Annotated[date, Field(description=T.Params.TARGET_DATE)],
     location: LocationArg = None,
     coordinates: Coordinates | None = None,
 ) -> ForecastResult:
-    """Previsão para uma data específica, se estiver dentro do horizonte de previsão."""
     return await _forecast(location, coordinates, target_date, target_date)
 
 

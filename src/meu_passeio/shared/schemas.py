@@ -1,4 +1,4 @@
-"""Schemas de domínio compartilhados entre API, planner e MCP Servers."""
+"""Schemas de domínio compartilhados entre a API e os MCP Servers."""
 
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ import datetime as dt
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from meu_passeio.texts import shared as T
 
 TravelMode = Literal["driving", "walking", "cycling"]
 Transportation = Literal["car", "bus", "plane", "walking", "other"]
@@ -30,7 +32,7 @@ class TripActivity(BaseModel):
     name: str
     category: str | None = None
     description: str | None = None
-    start_time: str | None = Field(default=None, description="HH:MM, horário sugerido")
+    start_time: str | None = Field(default=None, description=T.Fields.START_TIME)
     duration_minutes: int | None = Field(default=None, ge=0)
     estimated_cost: float | None = Field(default=None, ge=0)
     location: Coordinates | None = None

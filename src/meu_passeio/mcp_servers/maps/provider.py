@@ -12,6 +12,7 @@ import httpx
 
 from meu_passeio.mcp_servers.common.http import ProviderError, get_json
 from meu_passeio.shared.schemas import Coordinates, TravelMode
+from meu_passeio.texts import maps as T
 
 OSRM_BASE_URL = os.getenv("OSRM_BASE_URL", "https://routing.openstreetmap.de")
 _PROFILES: dict[str, str] = {
@@ -38,7 +39,7 @@ class OsrmProvider:
         data = await get_json(self._client, url, params=params, provider=SOURCE)
         if data.get("code") != "Ok":
             raise ProviderError(
-                f"OSRM não encontrou rota ({data.get('code', 'erro desconhecido')})."
+                T.Errors.ROUTE_NOT_FOUND.format(code=data.get("code", T.Errors.UNKNOWN_CODE))
             )
         return data
 

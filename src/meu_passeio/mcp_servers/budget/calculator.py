@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-DISCLAIMER = "Estimativa calculada a partir dos parâmetros informados; não é um preço real."
+from meu_passeio.texts import budget as T
+
+DISCLAIMER = T.DISCLAIMER
 
 
 class FuelCostResult(BaseModel):
@@ -21,11 +23,11 @@ class FuelCostResult(BaseModel):
 
 
 class CostItem(BaseModel):
-    category: str = Field(description="ex.: activities, food, transport, accommodation, tolls")
+    category: str = Field(description=T.Fields.CATEGORY)
     description: str | None = None
-    amount: float = Field(ge=0, description="Valor unitário estimado")
+    amount: float = Field(ge=0, description=T.Fields.AMOUNT)
     quantity: float = Field(default=1, ge=0)
-    per_person: bool = Field(default=False, description="Multiplica pelo número de viajantes")
+    per_person: bool = Field(default=False, description=T.Fields.PER_PERSON)
 
 
 class CategoryTotal(BaseModel):
@@ -82,11 +84,11 @@ def calculate_fuel_cost(
     round_trip: bool = False,
 ) -> FuelCostResult:
     if distance_km < 0:
-        raise ValueError("distance_km deve ser >= 0")
+        raise ValueError(T.Errors.NEGATIVE_DISTANCE)
     if consumption_km_per_liter <= 0:
-        raise ValueError("consumption_km_per_liter deve ser > 0")
+        raise ValueError(T.Errors.INVALID_CONSUMPTION)
     if fuel_price_per_liter < 0:
-        raise ValueError("fuel_price_per_liter deve ser >= 0")
+        raise ValueError(T.Errors.NEGATIVE_FUEL_PRICE)
     total_km = distance_km * (2 if round_trip else 1)
     liters = total_km / consumption_km_per_liter
     return FuelCostResult(
@@ -99,7 +101,7 @@ def calculate_fuel_cost(
             "fuel_price_per_liter": fuel_price_per_liter,
             "round_trip": round_trip,
         },
-        formula="(distance_km × (2 se ida e volta)) / consumo × preço_litro",
+        formula=T.FUEL_FORMULA,
     )
 
 
@@ -107,7 +109,7 @@ def estimate_trip_cost(
     items: list[CostItem], travelers: int = 1, budget: float | None = None
 ) -> TripCostResult:
     if travelers < 1:
-        raise ValueError("travelers deve ser >= 1")
+        raise ValueError(T.Errors.INVALID_TRAVELERS)
     totals: dict[str, float] = {}
     for item in items:
         multiplier = item.quantity * (travelers if item.per_person else 1)
@@ -133,16 +135,16 @@ def calculate_budget_breakdown(
     excluded_categories: list[str] | None = None,
 ) -> BudgetBreakdownResult:
     if total_budget < 0:
-        raise ValueError("total_budget deve ser >= 0")
+        raise ValueError(T.Errors.NEGATIVE_BUDGET)
     if days < 1 or travelers < 1:
-        raise ValueError("days e travelers devem ser >= 1")
+        raise ValueError(T.Errors.INVALID_DAYS_OR_TRAVELERS)
     raw = dict(weights or DEFAULT_WEIGHTS)
     notes: list[str] = []
     for excluded in excluded_categories or []:
         if raw.pop(excluded, None) is not None:
-            notes.append(f"Categoria '{excluded}' excluída do orçamento.")
+            notes.append(T.Notes.CATEGORY_EXCLUDED.format(category=excluded))
     if not raw or sum(raw.values()) <= 0:
-        raise ValueError("weights deve ter ao menos uma categoria com peso > 0")
+        raise ValueError(T.Errors.INVALID_WEIGHTS)
     weight_sum = sum(raw.values())
     allocations = [
         BudgetAllocation(

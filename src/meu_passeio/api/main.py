@@ -1,4 +1,4 @@
-"""Aplicação FastAPI — host MCP do Meu Passeio.
+"""Aplicação FastAPI do Meu Passeio — conecta os MCP Servers e expõe as tools via HTTP.
 
 Executar:  uvicorn meu_passeio.api.main:app --reload
 """
@@ -18,15 +18,13 @@ from meu_passeio.db.session import Database
 from meu_passeio.modules.mcp.client_manager import McpClientManager
 from meu_passeio.modules.mcp.config import load_mcp_config
 from meu_passeio.modules.mcp.router import router as mcp_router
-from meu_passeio.modules.planner.graph import PlannerGraph
-from meu_passeio.modules.planner.llm import LLMClient
-from meu_passeio.modules.planner.service import PlannerService
 from meu_passeio.modules.trips.router import router as trips_router
+from meu_passeio.texts.api import APP_DESCRIPTION
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings: Settings | None = None, *, llm: LLMClient | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(settings.log_level)
 
@@ -42,11 +40,9 @@ def create_app(settings: Settings | None = None, *, llm: LLMClient | None = None
         )
         await mcp.start()
 
-        graph = PlannerGraph(settings, llm or LLMClient(settings), mcp)
         app.state.settings = settings
         app.state.db = db
         app.state.mcp = mcp
-        app.state.planner = PlannerService(graph)
         logger.info("app_started", extra={"tools": len(mcp.catalog.all())})
         try:
             yield
@@ -57,10 +53,7 @@ def create_app(settings: Settings | None = None, *, llm: LLMClient | None = None
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
-        description=(
-            "Planejador de viagens com IA. O backend é o host MCP: conecta MCP Servers de "
-            "lugares, mapas, clima e orçamento e orquestra o planejamento com LangGraph."
-        ),
+        description=APP_DESCRIPTION,
         lifespan=lifespan,
     )
 

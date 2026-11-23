@@ -10,6 +10,8 @@ import httpx
 
 from meu_passeio.mcp_servers.common.http import ProviderError, get_json
 from meu_passeio.shared.schemas import Coordinates
+from meu_passeio.texts import weather as T
+from meu_passeio.texts.common import ProviderErrors
 
 FORECAST_URL = os.getenv("OPEN_METEO_FORECAST_URL", "https://api.open-meteo.com/v1/forecast")
 GEOCODING_URL = os.getenv(
@@ -17,37 +19,6 @@ GEOCODING_URL = os.getenv(
 )
 SOURCE = "open-meteo"
 MAX_FORECAST_DAYS = 16
-
-WMO_CODES: dict[int, str] = {
-    0: "céu limpo",
-    1: "predominantemente limpo",
-    2: "parcialmente nublado",
-    3: "nublado",
-    45: "nevoeiro",
-    48: "nevoeiro com geada",
-    51: "garoa fraca",
-    53: "garoa moderada",
-    55: "garoa intensa",
-    56: "garoa congelante fraca",
-    57: "garoa congelante intensa",
-    61: "chuva fraca",
-    63: "chuva moderada",
-    65: "chuva forte",
-    66: "chuva congelante fraca",
-    67: "chuva congelante forte",
-    71: "neve fraca",
-    73: "neve moderada",
-    75: "neve forte",
-    77: "grãos de neve",
-    80: "pancadas de chuva fracas",
-    81: "pancadas de chuva moderadas",
-    82: "pancadas de chuva fortes",
-    85: "pancadas de neve fracas",
-    86: "pancadas de neve fortes",
-    95: "trovoadas",
-    96: "trovoadas com granizo fraco",
-    99: "trovoadas com granizo forte",
-}
 
 _DAILY_FIELDS = [
     "weather_code",
@@ -75,7 +46,7 @@ class OpenMeteoProvider:
         )
         results: list[dict[str, Any]] = data.get("results") or []
         if not results:
-            raise ProviderError(f"Localização não encontrada: '{location}'.")
+            raise ProviderError(ProviderErrors.LOCATION_NOT_FOUND.format(location=location))
         lowered = location.lower()
         best = next(
             (r for r in results if (r.get("admin1") or "").lower() in lowered and r.get("admin1")),
@@ -109,7 +80,9 @@ class OpenMeteoProvider:
             days.append(
                 {
                     "date": day,
-                    "condition": WMO_CODES.get(code, "desconhecido") if code is not None else None,
+                    "condition": T.CONDITIONS.get(code, T.UNKNOWN_CONDITION)
+                    if code is not None
+                    else None,
                     "weather_code": code,
                     "temperature_max_c": daily["temperature_2m_max"][i],
                     "temperature_min_c": daily["temperature_2m_min"][i],

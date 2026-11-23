@@ -1,23 +1,23 @@
 # Meu Passeio
 
-Planejador de viagens com IA que usa **MCP (Model Context Protocol)** como camada padronizada de
-integração com ferramentas especializadas. O usuário descreve a viagem em linguagem natural — de
-um bate-volta a férias com várias cidades — e o Meu Passeio devolve um roteiro estruturado, com
-lugares reais, deslocamentos, clima e estimativas de custo.
+Conjunto de **MCP Servers (Model Context Protocol)** para planejamento de viagens — lugares,
+mapas, clima e orçamento — e uma API **FastAPI** que se conecta a eles como MCP Client, expõe as
+tools via HTTP e persiste roteiros.
 
-> "Quero um bate-volta saindo de Marília, até duas horas de carro, com natureza e orçamento de R$ 400."
+O projeto não tem orquestrador nem integração interna com IA: os servers podem ser usados por
+qualquer cliente MCP (por exemplo, Claude Desktop ou Claude Code), e a API serve para inspecionar,
+chamar as tools e guardar roteiros montados pelo cliente.
 
-**Stack:** Python 3.11+ · FastAPI · MCP Python SDK 2.x · LangGraph · Claude (Anthropic SDK) ·
-SQLAlchemy (SQLite/PostgreSQL) · OpenStreetMap / OSRM / Open-Meteo (sem API keys).
+**Stack:** Python 3.11+ · FastAPI · MCP Python SDK 2.x · SQLAlchemy (SQLite/PostgreSQL) ·
+OpenStreetMap / OSRM / Open-Meteo (sem API keys).
 
 ## Arquitetura
 
 ```mermaid
 flowchart TD
-    U[Usuário] --> API[Meu Passeio API - FastAPI]
-    API --> TL[Trip Planner - LangGraph]
-    TL --> LLM[Claude]
-    TL --> MCP[MCP Client Manager]
+    C[Cliente MCP externo<br/>ex.: Claude Desktop] -- stdio --> P
+    U[Cliente HTTP] --> API[Meu Passeio API - FastAPI]
+    API --> MCP[MCP Client Manager]
     MCP -- stdio --> P[Places MCP Server]
     MCP -- stdio --> M[Maps MCP Server]
     MCP -- stdio --> W[Weather MCP Server]
@@ -29,45 +29,21 @@ flowchart TD
     API --> DB[(SQLite / PostgreSQL)]
 ```
 
-**Princípio central:** o agente decide *quais capacidades usar e como combinar os resultados*;
-o MCP padroniza *como essas capacidades são disponibilizadas e chamadas*; e o backend mantém
-*regras, validação, estado, segurança e persistência*.
-
-### Workflow do planner (LangGraph)
-
-```mermaid
-flowchart TD
-    S((início)) -->|criar| PA[parse: Request Parser]
-    S -->|revisar| R
-    PA -->|faltam dados essenciais| Q[needs_clarification]
-    PA --> R[research: tool calls via MCP]
-    R --> B[build: Itinerary Builder]
-    B --> V[validate: orçamento, datas, horários, IDs]
-    V -->|erros, até N revisões| B
-    V -->|ok| F[completed]
-```
-
-- **parse** — extrai destino, datas, viajantes, orçamento e preferências (structured output).
-- **research** — loop de tool use com allowlist, limites de iterações/chamadas e chamadas paralelas.
-- **build** — monta o `TripPlan` só com dados das ferramentas (sem inventar lugares/horários).
-- **validate** — checagens determinísticas; erros voltam ao builder como feedback.
-- **revise** — edição conversacional: altera o mínimo e preserva o restante do roteiro.
-
 ## Estrutura
 
 ```text
 meu-passeio-mcp/
 ├── config/mcp_servers.yaml          # servers MCP conectados (transport, comando, timeout, allowlist)
 ├── src/meu_passeio/
-│   ├── api/                          # app FastAPI (lifespan = host MCP) e dependências
+│   ├── api/                          # app FastAPI (lifespan conecta os servers) e dependências
 │   ├── core/                         # settings (.env) e logging estruturado
 │   ├── db/                           # engine/sessões SQLAlchemy
 │   ├── shared/schemas.py             # modelos de domínio (TripPlan, TripDay, TripActivity…)
+│   ├── texts/                        # TODOS os textos: descrições de tools/params, notas, erros, API
 │   ├── modules/
 │   │   ├── mcp/                      # MCP Client Manager, Tool Catalog, config e rotas /mcp
-│   │   ├── planner/                  # grafo LangGraph, prompts, LLM, validator, schemas
-│   │   └── trips/                    # modelos, repositório, serviço e rotas /trips
-│   └── mcp_servers/                  # MCP Servers independentes (reutilizáveis por outros clients)
+│   │   └── trips/                    # modelos, repositório, serviço e rotas /trips (CRUD)
+│   └── mcp_servers/                  # MCP Servers independentes
 │       ├── common/                   # HTTP, erros seguros, geo
 │       ├── places/                   # search_places, search_restaurants, get_place_details
 │       ├── maps/                     # calculate_distance, get_route, get_travel_time, optimize_stops
@@ -88,7 +64,7 @@ meu-passeio-mcp/
 | **budget** | `calculate_fuel_cost`, `estimate_trip_cost`, `calculate_budget_breakdown` | Cálculos próprios, determinísticos |
 
 Cada server é um processo independente (`python -m meu_passeio.mcp_servers.<nome>`) que fala MCP
-via stdio e pode ser usado por qualquer MCP Client — inclusive o Claude Desktop/Claude Code:
+via stdio. Exemplo de configuração em um cliente MCP externo:
 
 ```json
 {
@@ -101,6 +77,10 @@ via stdio e pode ser usado por qualquer MCP Client — inclusive o Claude Deskto
 }
 ```
 
+Todos os textos (instruções dos servers, descrições de tools, parâmetros e campos, notas,
+mensagens de erro e textos da API) ficam em `src/meu_passeio/texts/`, um arquivo por área —
+para revisar ou traduzir, edite só esses arquivos.
+
 Dados que o provedor não fornece (ex.: avaliações no OSM) voltam como `null` — nunca inventados.
 Todo resultado carrega a origem (`source`) e erros de provedor viram mensagens seguras (`is_error`).
 
@@ -110,7 +90,7 @@ Todo resultado carrega a origem (`source`) e erros de provedor viram mensagens s
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-copy .env.example .env   # preencha ANTHROPIC_API_KEY
+copy .env.example .env
 uvicorn meu_passeio.api.main:app --reload
 ```
 
@@ -129,33 +109,28 @@ docker compose up --build
 | `GET` | `/health` | Status da API e de cada MCP Server |
 | `GET` | `/mcp/servers` | Conexões MCP, status e tools descobertas |
 | `GET` | `/mcp/tools` | Catálogo de tools (nome, server, schema) |
-| `POST` | `/mcp/tools/{server}/{tool}` | Executa uma tool diretamente (debug; desative em produção) |
+| `POST` | `/mcp/tools/{server}/{tool}` | Executa uma tool (desative em produção com `MEU_PASSEIO_ENABLE_TOOL_DEBUG_ENDPOINT=false`) |
 | `POST` | `/mcp/servers/{server}/reconnect` | Reconecta um server |
-| `POST` | `/trips` | Planeja uma viagem a partir de texto livre |
-| `GET` | `/trips` · `/trips/{id}` | Lista / detalha viagens |
-| `POST` | `/trips/{id}/clarify` | Responde às perguntas do planner |
-| `POST` | `/trips/{id}/revise` | Edição conversacional do roteiro |
-| `DELETE` | `/trips/{id}` | Remove a viagem |
+| `POST` | `/trips` | Salva um roteiro (`TripPlan`) |
+| `GET` | `/trips` · `/trips/{id}` | Lista / detalha roteiros |
+| `PUT` | `/trips/{id}` | Substitui um roteiro |
+| `DELETE` | `/trips/{id}` | Remove um roteiro |
 
-Exemplo:
+Exemplo — chamar uma tool pela API:
 
 ```powershell
-curl -X POST http://localhost:8000/trips -H "content-type: application/json" `
-  -d '{"request": "Planeje 4 dias em Campos do Jordão em julho, para 2 pessoas, de carro. Natureza e restaurantes; orçamento de R$ 1.800 sem hospedagem."}'
+curl -X POST http://localhost:8000/mcp/tools/places/search_places -H "content-type: application/json" `
+  -d '{"location": "Curitiba, PR, Brasil", "categories": ["park", "museum"], "radius_km": 5, "limit": 5}'
 ```
 
 ## Segurança, limites e observabilidade
 
-- **Allowlist de tools** por server (`allowed_tools` no YAML) e por etapa do workflow.
-- **Validação** de argumentos com JSON Schema antes de chamar o server; saídas validadas com Pydantic.
+- **Allowlist de tools** por server (`allowed_tools` no YAML).
+- **Validação** de argumentos com JSON Schema antes de chamar o server; roteiros validados com Pydantic.
 - **Timeouts e retries** por server; reconexão automática; falha de um server não derruba a API.
-- **Prompt injection:** resultados de tools são tratados como dados, nunca como instruções.
-- **Controle de custo:** limites de iterações, de chamadas de tools e de revisões (`.env`).
-- **Secrets** apenas em variáveis de ambiente; nunca no repositório, nos logs ou no prompt.
-- **Logs estruturados (JSON)** por tool call: `tripId`, `workflowRunId`, `mcpServer`, `tool`,
-  `durationMs`, `status`, `resultCount` — sem payloads ou dados pessoais.
-- **LLM:** Claude (`claude-opus-5-5`, effort configurável) com fallback server-side em caso de
-  recusa (`MEU_PASSEIO_LLM_ENABLE_FALLBACKS`).
+- **Secrets** apenas em variáveis de ambiente; nunca no repositório ou nos logs.
+- **Logs estruturados (JSON)** por tool call: `mcpServer`, `tool`, `durationMs`, `status`,
+  `resultCount` — sem payloads ou dados pessoais.
 
 ## Testes
 
@@ -163,16 +138,12 @@ curl -X POST http://localhost:8000/trips -H "content-type: application/json" `
 pytest
 ```
 
-Inclui testes unitários (budget, catálogo, validator), integração real via stdio com o Budget
-MCP Server e testes ponta a ponta da API com um LLM simulado (sem custo de API).
+Inclui testes unitários (budget e catálogo), integração real via stdio com o Budget MCP Server e
+testes ponta a ponta da API.
 
 ## Roadmap
 
-- [x] Fase 1 — MCP Client + Places/Weather + agente + schema validado + API
-- [x] Fase 2 — Maps, agrupamento por região, Budget, persistência
-- [x] Fase 3 — edição conversacional (revise) preservando o restante do roteiro
 - [ ] Frontend (React) com cards, mapa e roteiro por dia
 - [ ] Transporte streamable HTTP para servers remotos
-- [ ] Execução assíncrona do planejamento (fila + polling/SSE)
 - [ ] Migrações com Alembic
 - [ ] Accommodation e Transport MCP Servers

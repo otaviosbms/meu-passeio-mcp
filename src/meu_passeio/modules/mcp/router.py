@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from meu_passeio.api.dependencies import get_mcp_manager, get_settings_dep
 from meu_passeio.core.config import Settings
 from meu_passeio.modules.mcp.client_manager import McpClientManager
+from meu_passeio.texts.api import Http, Routes
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
@@ -26,13 +27,13 @@ async def list_tools(mcp: Annotated[McpClientManager, Depends(get_mcp_manager)])
 @router.post("/servers/{server}/reconnect")
 async def reconnect(server: str, mcp: Annotated[McpClientManager, Depends(get_mcp_manager)]):
     if server not in mcp.connections:
-        raise HTTPException(404, "Server MCP não configurado.")
+        raise HTTPException(404, Http.MCP_SERVER_NOT_CONFIGURED)
     await mcp.connections[server].stop()
     await mcp.start()
     return mcp.status()
 
 
-@router.post("/tools/{server}/{tool}")
+@router.post("/tools/{server}/{tool}", description=Routes.CALL_TOOL)
 async def call_tool(
     server: str,
     tool: str,
@@ -40,9 +41,8 @@ async def call_tool(
     settings: Annotated[Settings, Depends(get_settings_dep)],
     arguments: Annotated[dict[str, Any], Body(examples=[{"total_budget": 400, "days": 1}])],
 ):
-    """Executa uma tool diretamente (útil para debug/demo). Desative em produção."""
     if not settings.enable_tool_debug_endpoint:
-        raise HTTPException(403, "Endpoint de debug desabilitado.")
+        raise HTTPException(403, Http.DEBUG_ENDPOINT_DISABLED)
     result = await mcp.call_tool(server, tool, arguments)
     return {
         "server": result.server,
